@@ -153,8 +153,8 @@ void main() {
       expect(wlan, containsPair('app', 'wlan'));
       expect(wlan['iconName'], '${_c}WlanMonitor-symbolic');
       // Every app of the real panel is in it; Maprisma Playground, Notifier, Dictation and the
-      // Manager's own icon came later and are out (Price Watch too).
-      expect([for (final o in r['out'] as List) o['app']], ['playground', 'pricewatch', 'notifier', 'dictation', 'settings']);
+      // Manager's own icon came later and are out (Mail and Price Watch too).
+      expect([for (final o in r['out'] as List) o['app']], ['playground', 'mail', 'pricewatch', 'notifier', 'dictation', 'settings']);
       expect(r['revision'], isA<String>());
     });
 
