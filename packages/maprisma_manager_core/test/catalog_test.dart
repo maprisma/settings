@@ -4,10 +4,10 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
-  test('18 apps with unique ids, a key path per component, known dependencies', () {
-    expect(catalog, hasLength(18));
+  test('20 apps with unique ids, a key path per component, known dependencies', () {
+    expect(catalog, hasLength(20));
     final ids = {for (final a in catalog) a.id};
-    expect(ids, hasLength(18));
+    expect(ids, hasLength(20));
     expect(ids, containsAll(['maprisma', 'control', 'launcher', 'theme', 'playground', 'bluetooth', 'home', 'hue', 'llm', 'wlan', 'narrator', 'video', 'tiling', 'icons', 'shell', 'settings', 'notifier', 'dictation']));
     for (final a in catalog) {
       for (final c in a.components) {
