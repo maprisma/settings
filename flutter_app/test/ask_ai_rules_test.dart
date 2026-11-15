@@ -194,4 +194,49 @@ void main() {
     expect(find.text('Off because another rule blocks this item'), findsOneWidget);
   });
 
+  Map<String, dynamic> withMail(Map<String, dynamic> view, {String level = 'review'}) => {
+    ...view,
+    'mail_installed': true,
+    'actions': [
+      ...view['actions'] as List,
+      {'id': 'mail.draft', 'app': 'mail', 'label': 'Write drafts and accept AI changes', 'on': true, 'default_off': false, 'effective': level == 'review'},
+      {'id': 'mail.move', 'app': 'mail', 'label': 'Move to folders', 'on': false, 'default_off': true, 'effective': false},
+    ],
+    'data': [
+      {'id': 'mail.online', 'app': 'mail', 'label': 'Use online AI helpers', 'on': true, 'default_off': false, 'effective': true},
+      {'id': 'mail.attachments', 'app': 'mail', 'label': 'Send the text of attachments you pick', 'on': false, 'default_off': true, 'effective': false},
+    ],
+    'answers': [
+      ...view['answers'] as List,
+      {'id': 'mail.answers', 'app': 'mail', 'label': 'Summaries, reply and rewrite suggestions, questions about a thread'},
+    ],
+  };
+
+  testWidgets('Mail installed: its actions, what it may send, its answers; a data switch is kind data', (tester) async {
+    final calls = await open(tester, withMail(_view()));
+    expect(find.text('Maprisma Mail'), findsWidgets);
+    expect(find.text('Write drafts and accept AI changes'), findsOneWidget);
+    expect(find.text('What Mail may send'), findsOneWidget);
+    expect(find.text('Use online AI helpers'), findsOneWidget);
+    expect(find.text('Summaries, reply and rewrite suggestions, questions about a thread'), findsOneWidget);
+    expect(find.text('Off until you switch it on'), findsNWidgets(2)); // mail.move, mail.attachments
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('ask-ai-data-mail.attachments')), matching: find.byType(Switch)));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.$1 == 'ai.set_rule').single.$2, {'kind': 'data', 'id': 'mail.attachments', 'on': true});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('answers only: Mail\'s data switches still apply', (tester) async {
+    await open(tester, withMail(_view(level: 'answers'), level: 'answers'));
+    final online = find.descendant(of: find.byKey(const ValueKey('ask-ai-data-mail.online')), matching: find.byType(Switch));
+    expect(tester.widget<Switch>(online).value, isTrue);
+    final draft = find.descendant(of: find.byKey(const ValueKey('ask-ai-actions-mail.draft')), matching: find.byType(Switch));
+    expect(tester.widget<Switch>(draft).value, isFalse);
+  });
+
+  testWidgets('Mail not installed: no Mail group', (tester) async {
+    await open(tester, {..._view(), 'mail_installed': false, 'data': <Object>[]});
+    expect(find.text('Maprisma Mail'), findsNothing);
+    expect(find.text('What Mail may send'), findsNothing);
+  });
 }

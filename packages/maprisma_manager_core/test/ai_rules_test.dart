@@ -5,7 +5,9 @@ import 'dart:io';
 
 import 'package:maprisma_manager_core/src/ai/rules.dart';
 import 'package:maprisma_manager_core/src/ai/posix.dart';
+import 'package:maprisma_manager_core/src/paths.dart';
 import 'package:maprisma_manager_core/src/ai/shared_helper.dart';
+import 'package:maprisma_manager_core/src/translations_generated.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -164,4 +166,165 @@ void main() {
     expect(target.readAsStringSync(), 'keep');
   });
 
+  test('default-off ids: only true allows; a reset leaves them off; the rest stays missing = on', () {
+    expect(askAiAllowed(w.paths, 'mail.move'), isFalse);
+    expect(askAiAllowed(w.paths, 'mail.trash'), isFalse);
+    expect(askAiAllowed(w.paths, 'mail.archive'), isTrue);
+    expect(askAiDataAllowed(w.paths, 'mail.attachments'), isFalse);
+    write({'ask_ai': {'actions': {'mail.move': true, 'mail.trash': false, 'mail.draft': false}}});
+    expect(askAiAllowed(w.paths, 'mail.move'), isTrue);
+    expect(askAiAllowed(w.paths, 'mail.trash'), isFalse);
+    expect(askAiAllowed(w.paths, 'mail.draft'), isFalse);
+    write({'ask_ai': {'actions': {'mail.move': 'yes'}}});
+    expect(askAiAllowed(w.paths, 'mail.move'), isFalse);
+    expect(readAskAiRules(w.paths).broken, isTrue);
+    write({'ask_ai': {'actions': {'mail.move': true, 'mail.trash': true}, 'data': {'mail.attachments': true}}});
+    writeAskAiRule(w.paths, kind: 'data', id: 'mail.online', on: false);
+    expect(askAiDataAllowed(w.paths, 'mail.attachments'), isTrue);
+    resetAskAiRules(w.paths);
+    expect(askAiAllowed(w.paths, 'mail.move'), isFalse);
+    expect(askAiAllowed(w.paths, 'mail.trash'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.attachments'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isTrue);
+    expect(askAiAllowed(w.paths, 'mail.label'), isTrue);
+  });
+
+  test('data ids: own kind, independent of the level; malformed data is all off', () {
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isTrue);
+    expect(askAiDataAllowed(w.paths, 'mail.tone_samples'), isTrue);
+    writeAskAiRule(w.paths, kind: 'data', id: 'mail.online', on: false);
+    writeAskAiRule(w.paths, kind: 'data', id: 'mail.attachments', on: true);
+    final stored = (jsonDecode(shared().readAsStringSync()) as Map)['ask_ai'] as Map;
+    expect(stored['data'], {'mail.online': false, 'mail.attachments': true});
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.attachments'), isTrue);
+    expect(() => writeAskAiRule(w.paths, kind: 'data', id: 'launcher.remove', on: false), throwsArgumentError);
+    // answers only: every action off, the data switches still say what is sent
+    writeAskAiRule(w.paths, level: 'answers');
+    expect(askAiAllowed(w.paths, 'mail.draft'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.attachments'), isTrue);
+    expect(askAiDataAllowed(w.paths, 'mail.tone_samples'), isTrue);
+    final view = askAiRulesView(w.paths);
+    expect(view['level'], 'answers');
+    // malformed: not an object, or a known id that isn't a boolean
+    write({'ask_ai': {'data': ['mail.online']}});
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.tone_samples'), isFalse);
+    expect(askAiAllowed(w.paths, 'mail.draft'), isTrue); // only the data kind is off
+    expect(readAskAiRules(w.paths).broken, isTrue);
+    write({'ask_ai': {'data': {'mail.online': 1, 'mail.future': 'x'}}});
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isFalse);
+    expect(askAiDataAllowed(w.paths, 'mail.tone_samples'), isTrue);
+    expect(readAskAiRules(w.paths).broken, isTrue);
+    expect(() => writeAskAiRule(w.paths, kind: 'data', id: 'mail.online', on: true), returnsNormally);
+    write({'ask_ai': {'data': 'off'}});
+    expect(() => writeAskAiRule(w.paths, kind: 'data', id: 'mail.online', on: true), throwsA(isA<FileSystemException>()));
+    // an unreadable file or an ask_ai that isn't an object: nothing is sent either
+    write({'ask_ai': 'off'});
+    expect(askAiDataAllowed(w.paths, 'mail.online'), isFalse);
+    shared().writeAsStringSync('{not json');
+    expect(askAiDataAllowed(w.paths, 'mail.tone_samples'), isFalse);
+  });
+
+  group('Mail installed', () {
+    // A fake bundle like Mail's installer makes: ~/.local/bin/maprisma-mail → lib/maprisma-mail/maprisma-mail.
+    String bundle(String dir, {bool omamail = true, bool libapp = true, bool executable = true}) {
+      final program = File(p.join(dir, 'maprisma-mail'))..createSync(recursive: true);
+      if (executable) Process.runSync('chmod', ['755', program.path]);
+      if (omamail) File(p.join(dir, 'bin/omamail')).createSync(recursive: true);
+      if (libapp) File(p.join(dir, 'lib/libapp.so')).createSync(recursive: true);
+      return program.path;
+    }
+
+    void desktop(String appsDir, String exec) => File(p.join(appsDir, 'com.maprisma.Mail.desktop'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('[Desktop Entry]\nType=Application\nName=Maprisma Mail\nExec=$exec\n');
+
+    Map<String, String> env([Map<String, String> extra = const {}]) => w.env(extra: extra);
+
+    test('the user\'s desktop file, a linked program and the bundle next to it', () {
+      expect(mailInstalled(w.paths, env()), isFalse);
+      final program = bundle(p.join(w.home, '.local/lib/maprisma-mail'));
+      final link = p.join(w.home, '.local/bin/maprisma-mail');
+      Directory(p.dirname(link)).createSync(recursive: true);
+      Link(link).createSync(program);
+      desktop(w.paths.apps, '"$link"');
+      expect(mailInstalled(w.paths, env()), isTrue);
+      desktop(w.paths.apps, '$link %U');
+      expect(mailInstalled(w.paths, env()), isTrue);
+      // a link whose bundle is gone, or a missing program
+      File(p.join(w.home, '.local/lib/maprisma-mail/lib/libapp.so')).deleteSync();
+      expect(mailInstalled(w.paths, env()), isFalse);
+      desktop(w.paths.apps, '"${p.join(w.home, 'nowhere')}"');
+      expect(mailInstalled(w.paths, env()), isFalse);
+      // ~ and variables are not expanded
+      desktop(w.paths.apps, '~/.local/bin/maprisma-mail');
+      expect(mailInstalled(w.paths, env()), isFalse);
+    });
+
+    test('not executable, no omamail, a bare name in PATH, XDG_DATA_HOME', () {
+      final dir = p.join(w.dir, 'opt/mail');
+      final program = bundle(dir, executable: false);
+      desktop(w.paths.apps, program);
+      expect(mailInstalled(w.paths, env()), isFalse);
+      Process.runSync('chmod', ['755', program]);
+      expect(mailInstalled(w.paths, env()), isTrue);
+      File(p.join(dir, 'bin/omamail')).deleteSync();
+      expect(mailInstalled(w.paths, env()), isFalse);
+      File(p.join(dir, 'bin/omamail')).createSync();
+      desktop(w.paths.apps, 'maprisma-mail');
+      expect(mailInstalled(w.paths, env()), isFalse); // not in PATH
+      expect(mailInstalled(w.paths, env({'PATH': '${w.fakeBin}:$dir'})), isTrue);
+      final data = p.join(w.dir, 'xdgdata');
+      final moved = Paths.fromEnvironment(env({'XDG_DATA_HOME': data}));
+      expect(mailInstalled(moved, env({'XDG_DATA_HOME': data})), isFalse);
+      desktop(p.join(data, 'applications'), program);
+      expect(mailInstalled(moved, env({'XDG_DATA_HOME': data})), isTrue);
+    });
+
+    test('a system data folder (XDG_DATA_DIRS or its default) under the root', () {
+      final program = bundle(p.join(w.dir, 'opt/mail'));
+      desktop(p.join(w.root, 'usr/share/applications'), program);
+      expect(mailInstalled(w.paths, env()), isTrue);
+      expect(mailInstalled(w.paths, env({'XDG_DATA_DIRS': '/srv/share'})), isFalse);
+      desktop(p.join(w.root, 'srv/share/applications'), program);
+      expect(mailInstalled(w.paths, env({'XDG_DATA_DIRS': '/srv/share'})), isTrue);
+      // the user's file comes first and hides the system's
+      desktop(w.paths.apps, '"${p.join(w.dir, 'gone')}"');
+      expect(mailInstalled(w.paths, env()), isFalse);
+    });
+
+    test('the view leaves Mail out until it is installed; stored switches are kept', () {
+      write({'ask_ai': {'actions': {'mail.draft': false}, 'data': {'mail.online': false}}});
+      var view = askAiRulesView(w.paths, environment: env());
+      expect(view['mail_installed'], isFalse);
+      expect((view['actions'] as List).where((a) => a['app'] == 'mail'), isEmpty);
+      expect(view['data'], isEmpty);
+      expect((view['answers'] as List).where((a) => a['app'] == 'mail'), isEmpty);
+      expect(((jsonDecode(shared().readAsStringSync()) as Map)['ask_ai'] as Map)['actions'], {'mail.draft': false});
+      desktop(w.paths.apps, bundle(p.join(w.dir, 'opt/mail')));
+      writeAskAiRule(w.paths, level: 'answers');
+      view = askAiRulesView(w.paths, environment: env());
+      expect(view['mail_installed'], isTrue);
+      Map item(String kind, String id) => (view[kind] as List).firstWhere((i) => i['id'] == id) as Map;
+      expect(item('actions', 'mail.draft')['on'], isFalse);
+      expect(item('actions', 'mail.label')['on'], isTrue);
+      expect(item('actions', 'mail.label')['effective'], isFalse); // answers only
+      expect(item('actions', 'mail.move')['on'], isFalse);
+      expect(item('actions', 'mail.move')['default_off'], isTrue);
+      expect(item('data', 'mail.online')['on'], isFalse);
+      expect(item('data', 'mail.tone_samples')['effective'], isTrue); // data ignores the level
+      expect(item('data', 'mail.attachments')['effective'], isFalse);
+      expect(item('data', 'mail.attachments')['default_off'], isTrue);
+      expect((view['answers'] as List).map((a) => a['id']), contains('mail.answers'));
+    });
+  });
+
+  test('every label of the page is translated in every language', () {
+    for (final i in [...askAiActions, ...askAiSources, ...askAiFolders, ...askAiData, ...askAiAnswers]) {
+      for (final code in catalogs.keys) {
+        expect(catalogs[code]![i.label], isNotNull, reason: '$code: ${i.label}');
+      }
+    }
+  });
 }

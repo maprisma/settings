@@ -36,16 +36,20 @@ and `web_search`). New key:
   "level": "review",
   "actions": { "launcher.remove": false },
   "sources": { "aur": false },
-  "folders": { "downloads": true }
+  "folders": { "downloads": true },
+  "data": { "mail.online": true }
 }
 ```
 
 - `level`: `"review"` (actions allowed by the switches) or `"answers"` (Ask AI only answers and
   suggests; every action is off).
-- `actions`, `sources`, `folders`: id → boolean. `false` switches something off; a missing id or `true`
-  = allowed. Unknown ids are kept and ignored.
+- `actions`, `sources`, `folders`, `data`: id → boolean. `false` switches something off; a missing id or
+  `true` = allowed. Unknown ids are kept and ignored.
+- **Off unless switched on** (Uwe, 2026-11-15): a few ids are marked *default off* in the tables below
+  (`mail.move`, `mail.trash`, `mail.attachments`). For them only `true` allows; a missing id = off, and a
+  reset leaves them off. Every other id keeps "missing = allowed".
 - **Malformed values are restrictive:** a `level` other than the two = `answers`; an `actions`,
-  `sources` or `folders` that isn't an object = everything of that kind off; a known id whose value isn't
+  `sources`, `folders` or `data` that isn't an object = everything of that kind off; a known id whose value isn't
   a boolean = off. Settings shows such a file as broken and offers to reset the rules.
 - **Reading:** a missing file or a file without `ask_ai` = defaults (all allowed, level review). A file
   that exists but can't be read or parsed, is over 64 KiB, or has an `ask_ai` that isn't an object =
@@ -72,6 +76,18 @@ and `web_search`). New key:
 | `theme.generate` | generate a picture, set up the generator | `create.make`, `create.setup` |
 | `theme.wallpapers` | add wallpapers (downloaded or generated) | `wallhaven.add`, `webimg.add`, `create.add` (with `set: true` also `theme.apply`) |
 | `settings.updates` | update, reinstall, refresh packages of Maprisma apps | each step of Settings' AI update loop (update, reinstall, pub_get) |
+| `mail.draft` | write a reply or a new draft, accept rewrite/translation diffs (body text only: never recipients, subject or attachments) | Mail's composer before the AI text replaces the body (accepting a diff, [Create draft]); never enqueues delivery |
+| `mail.label` | add or remove existing labels on given messages (no new labels) | `mail.act` label operations, `imap.modify` flags for labels |
+| `mail.archive` | archive and unarchive given messages | `mail.act` archive/unarchive |
+| `mail.flags` | read/unread, star/unstar | `mail.act` read/unread/star/unstar |
+| `mail.move` *(default off)* | move given messages to an ordinary folder (not trash or spam) | `imap.modify` move, `mail.act` move |
+| `mail.trash` *(default off)* | move to trash, mark as spam (never delete for good) | `mail.act` trash/spam |
+| `mail.event` | create a calendar event from a mail (no attendees, no invitation answers) | the calendar hand-off, after its review |
+| `mail.reminder` | a reminder for a message | the reminder store, after its review |
+
+**Never for Ask AI in Mail** (no id, refused by the schema, not switchable): sending or scheduling
+delivery, forwarding, deleting for good, unsubscribing, account, password, filter or rule changes,
+anything automatic. An AI draft is sent only by the user's own Send.
 
 A compound step (e.g. install a theme and apply it, add a wallpaper and apply it) needs **all** its ids
 and is checked completely before its first change. Batch steps apply the id to each target.
@@ -79,7 +95,31 @@ and is checked completely before its first change. Batch steps apply the id to e
 opt-in; the rule can switch it off on top. `git fetch` before an update is preparation, not gated.
 
 Answers only, always on (shown on the page, no switch): Launcher suggestions, explanations and lists
-(shortcuts, hidden apps), Theme answers and previews, Notifier "Check with AI", Playground chat.
+(shortcuts, hidden apps), Theme answers and previews, Notifier "Check with AI", Playground chat,
+Mail summaries, questions about a thread, reply and rewrite **previews** and search suggestions
+(`mail.answers`). "Always on" means no action switch: the data rules below still apply.
+
+### Data ids (what an app may send to the AI helper)
+
+They apply to **every** Ask AI call of the app, answers too, and whatever the `level` is.
+
+| id | what | default |
+|---|---|---|
+| `mail.online` | Mail may send the (sanitised) thread or draft to an online helper. Off: only local models (pi's loopback models, Hermes's local default) are used; nothing falls back to an online one | on |
+| `mail.attachments` | Mail may send the text of attachments the user picked for one question | **off** |
+| `mail.tone_samples` | "Refine my tone with AI": the masked snippets of sent mail the user reviewed, once | on |
+
+Mail's own per-account switch (AI off / Local model only / AI helper) combines with these: **deny wins**
+(an account set to Local only stays local with `mail.online` on; `mail.online` off makes every account
+local only).
+
+### Showing Mail's part
+
+Settings lists Mail's actions, data ids and answers only while Maprisma Mail is installed:
+`com.maprisma.Mail.desktop` in `$XDG_DATA_HOME/applications` or an `$XDG_DATA_DIRS/*/applications`
+whose `Exec` program (first word, `~`/env not expanded, links resolved) is an executable file with
+`bin/omamail` and `lib/libapp.so` next to it. Nothing is started to find out. Stored switches of an
+uninstalled Mail are kept.
 
 ### Source ids (Launcher installs)
 
@@ -96,10 +136,12 @@ blocked.
 
 ```
 allowed(action, source?) = level != "answers"
-                           && actions[action] != false
+                           && (defaultOff(action) ? actions[action] == true : actions[action] != false)
                            && (source == null || sources[source] != false)
                            && (source != "local" || folders["downloads"] != false)
 ```
+
+dataAllowed(id) = defaultOff(id) ? data[id] == true : data[id] != false     (any level)
 
 ## The log
 

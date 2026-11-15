@@ -5,8 +5,9 @@ import 'core_call.dart';
 import 'settings_widgets.dart';
 
 /// What every app's Ask AI may do (docs/ask-ai-rules.md): the overall level, a switch per action,
-/// install sources and folders (`ai.rules`, `ai.set_rule`, `ai.reset_rules`), the answers that are
-/// always on, and the log of what Ask AI changed (`ai.log`, `ai.clear_log`). The apps enforce it.
+/// install sources and folders, what Mail may send (data ids; Mail's part only while Mail is
+/// installed) (`ai.rules`, `ai.set_rule`, `ai.reset_rules`), the answers that are always on, and the
+/// log of what Ask AI changed (`ai.log`, `ai.clear_log`). The apps enforce it.
 class AskAiRules extends StatefulWidget {
   const AskAiRules({super.key, required this.core});
   final CoreCall core;
@@ -26,6 +27,7 @@ class AskAiRulesState extends State<AskAiRules> {
     'settings': 'Maprisma Settings',
     'notifier': 'Maprisma Notifier',
     'playground': 'Maprisma Playground',
+    'mail': 'Maprisma Mail',
   };
 
   @override
@@ -85,8 +87,9 @@ class AskAiRulesState extends State<AskAiRules> {
         key: ValueKey('ask-ai-$kind-${item['id']}'),
         title: tr(item['label'] as String),
         description: item['effective'] == false
-            ? tr(answersOnly ? 'Off while Ask AI only answers' :
-                item['on'] == true ? 'Off because another rule blocks this item' : 'Switched off in Maprisma Settings › AI')
+            ? tr(answersOnly && kind != 'data' ? 'Off while Ask AI only answers' :
+                item['on'] == true ? 'Off because another rule blocks this item' :
+                item['default_off'] == true ? 'Off until you switch it on' : 'Switched off in Maprisma Settings › AI')
             : null,
         value: item['effective'] == true,
         onChanged: working
@@ -183,7 +186,7 @@ class AskAiRulesState extends State<AskAiRules> {
             ),
           ],
         ),
-        for (final app in ['launcher', 'theme', 'settings'])
+        for (final app in ['launcher', 'theme', 'settings', 'mail'])
           if (actions.any((a) => a['app'] == app))
             SettingsSection(
               title: apps[app]!,
@@ -192,6 +195,19 @@ class AskAiRulesState extends State<AskAiRules> {
                   _toggle('actions', a, answersOnly: answersOnly),
               ],
             ),
+        // what Mail may send to the helper: every Ask AI call, answers too, whatever the level
+        if (r['mail_installed'] == true && _items('data').isNotEmpty)
+          SettingsSection(
+            key: const ValueKey('ask-ai-mail-data'),
+            title: tr('What Mail may send'),
+            note: tr(
+              'Applies to every Ask AI in Maprisma Mail, answers too. Without online helpers Mail uses only local models. Mail\'s own account settings can only restrict this further.',
+            ),
+            children: [
+              for (final d in _items('data'))
+                _toggle('data', d, answersOnly: answersOnly),
+            ],
+          ),
         SettingsSection(
           title: tr('Install sources'),
           note: tr(

@@ -7,8 +7,8 @@ import 'core_call.dart';
 import 'desktop_page.dart';
 import 'settings_widgets.dart';
 
-/// AI: the helper every Maprisma app uses (Launcher, Theme, Playground, Notifier's Check with AI
-/// and the Manager's AI updates), saved in `~/.config/maprisma-ai/settings.json` (`ai.helpers`,
+/// AI: the helper every Maprisma app uses (Launcher, Theme, Playground, Notifier's Check with AI,
+/// Mail and the Manager's AI updates), saved in `~/.config/maprisma-ai/settings.json` (`ai.helpers`,
 /// `ai.set_helper`), whether that helper may search the web (`web_search`, `ai.set_web_search`),
 /// and Let AI do the updates (`settings.set ai_updates`).
 class AiPage extends StatefulWidget {
@@ -97,7 +97,7 @@ class AiPageState extends State<AiPage> with RoutePage {
             SettingsChoice<String>(
               key: const ValueKey('ai-page-helper'),
               title: tr('AI helper for all Maprisma apps'),
-              description: tr('Launcher, Theme, Playground, Notifier (Check with AI) and the AI updates of Maprisma Settings use it. Automatic picks the first installed helper that can do the job.'),
+              description: tr('Launcher, Theme, Playground, Notifier (Check with AI), Mail and the AI updates of Maprisma Settings use it. Automatic picks the first installed helper that can do the job.'),
               value: shown(d),
               choices: choices(d),
               onChanged: working || list.isEmpty ? null : (v) => _set('helper', v),
