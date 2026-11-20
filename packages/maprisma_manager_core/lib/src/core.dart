@@ -251,6 +251,7 @@ final class CoreService {
       'displays.set': (params) => displays.set(params),
       'displays.undo': (_) => displays.undo(),
       'displays.keep': (_) => displays.keep(),
+      'displays.store': (params) => displays.store(params),
       'input.get': (_) => input.get(),
       'input.set': (params) => input.set(params),
       // Hyprland's animations on the Appearance page (hypr-manager.lua, animations.dart).

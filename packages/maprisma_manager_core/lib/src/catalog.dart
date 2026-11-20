@@ -587,7 +587,8 @@ final List<AppEntry> builtinCatalog = [
   ),
 
   // Brightness, text size and scale as Omarchy's Display panel, plus resolution, refresh rate,
-  // VRR and HDR (English only). Local until it is published.
+  // VRR and HDR (English only). Local until it is published. On Hyprland it keeps its changes in
+  // this app's hypr-manager.lua (`hypr-monitor`, DisplaysService.store): one file for both.
   _rustApp(
     id: 'display',
     name: 'Maprisma Display',
@@ -598,7 +599,6 @@ final List<AppEntry> builtinCatalog = [
     data: const [
       DataPath('{config}/maprisma-display', note: 'settings.json: window, F12, corners, text size'),
       DataPath('{state}/maprisma-display', note: 'text-originals.json: your font sizes before the first text size change (put back at 12 px)'),
-      DataPath('{config}/hypr/hypr-display.lua', keep: true, note: 'Hyprland: the display settings chosen in the app (hooked from hypr-user.lua)'),
     ],
   ),
 

@@ -22,6 +22,7 @@ const usage = '''usage: maprisma-settings-core status [--json] [--desktop cosmic
        maprisma-settings-core icon <id> [<name>|<file>|--reset] [--search <text>] [--json]
        maprisma-settings-core ai-helpers                   (the AI helpers for "Let AI do the updates")
        maprisma-settings-core ai-update [<helper>]         (let the AI update the apps; the AI page must allow it)
+       maprisma-settings-core hypr-monitor <output> <json>  (Maprisma Display: keep monitor fields in hypr-manager.lua)
        maprisma-settings-core jobs [<id>]
        maprisma-settings-core log <job>
        maprisma-settings-core version
@@ -125,6 +126,21 @@ Future<int> runCli(List<String> args, {CoreService? service, IOSink? out, String
               ? 'GitHub org ${org['org']}: ${_age(org['age'])}${org['error'] != null ? ' (last try failed: ${org['error']})' : ''}; refresh: github --force'
               : 'GitHub org ${org['org']} not listed yet: github --force');
         }
+      // Maprisma Display keeps a Hyprland display change in the same hypr-manager.lua.
+      case ['hypr-monitor', final output, final fields]:
+        final Object? parsed;
+        try {
+          parsed = jsonDecode(fields);
+        } on FormatException {
+          stderr.writeln('hypr-monitor: the fields are not JSON');
+          return 2;
+        }
+        if (parsed is! Map<String, dynamic>) {
+          stderr.writeln('hypr-monitor: the fields must be a JSON object');
+          return 2;
+        }
+        final r = await core.call('displays.store', {...parsed, 'output': output});
+        sink.writeln(json ? jsonEncode(r) : 'hypr-monitor $output: ${r['reloaded'] == true ? 'kept' : 'kept (Hyprland did not reload)'}');
       case ['ai-helpers']:
         final r = await core.call('ai.helpers');
         if (json) {

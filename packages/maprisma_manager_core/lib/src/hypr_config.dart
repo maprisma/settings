@@ -78,12 +78,18 @@ final class HyprConfig {
   static String lua(Map<String, dynamic> state) {
     final b = StringBuffer('-- Written by Maprisma Settings (Displays, Input devices, Animations). Changes made here by hand are\n-- replaced on the next change in Maprisma Settings; remove a value there instead.\n');
     final monitors = (state['monitors'] as Map?) ?? const {};
+    // Monitors set to follow HDR (Maprisma Display) read the shared choice of Super+H.
+    if (monitors.values.any((m) => m is Map && m['hdr'] == true)) b.write(hdrPreamble);
     for (final MapEntry(:key, :value) in monitors.entries) {
       final m = value as Map;
       b.writeln('hl.monitor({');
       b.writeln('    output = ${_value(key)},');
       for (final k in ['disabled', 'mode', 'position', 'scale', 'transform', 'vrr', 'mirror']) {
         if (m.containsKey(k)) b.writeln('    $k = ${_value(m[k])},');
+      }
+      if (m['hdr'] == true && m['disabled'] != true) {
+        b.writeln('    bitdepth = hdr_on and 10 or 8,');
+        b.writeln('    cm = hdr_on and "hdr" or "srgb",');
       }
       b.writeln('})');
     }
@@ -110,6 +116,18 @@ final class HyprConfig {
     if (animations is Map<String, dynamic>) b.write(AnimationsService.lua(animations));
     return b.toString();
   }
+
+  /// `hdr_on` from ~/.local/state/maprisma-hdr/hyprland ("on"/"off"), shared with Super+H
+  /// (maprisma-hdr-toggle) and Maprisma Display.
+  static const hdrPreamble = 'local hdr_on = false\n'
+      'do\n'
+      '    local state = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/maprisma-hdr/hyprland"\n'
+      '    local f = io.open(state, "r")\n'
+      '    if f then\n'
+      '        hdr_on = (f:read("*l") or "") == "on"\n'
+      '        f:close()\n'
+      '    end\n'
+      'end\n';
 
   /// `hyprctl getoption <key> -j`'s value (int, float, str or bool), null when unknown.
   Future<Object?> option(String key) async {

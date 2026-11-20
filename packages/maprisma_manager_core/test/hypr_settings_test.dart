@@ -105,6 +105,40 @@ void main() {
     await expectLater(w.core(desktop: 'COSMIC').call('displays.get'), throwsA(isA<RouteError>().having((e) => e.code, 'code', 'unavailable')));
   });
 
+  test('displays.store (Maprisma Display) keeps fields at once, no countdown, HDR follows Super+H', () async {
+    final core = w.core(desktop: 'Hyprland');
+    core.displays.keepFor = const Duration(milliseconds: 200);
+    final r = await core.call('displays.store', {'output': 'HDMI-A-1', 'scale': 1.6, 'vrr': 1, 'hdr': true});
+    expect(r['revertIn'], isNull);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(lua(), contains('hl.monitor({\n    output = "HDMI-A-1",\n    mode = "3840x2160@120.00",\n    position = "0x0",\n    scale = 1.6,\n    vrr = 1,\n    bitdepth = hdr_on and 10 or 8,\n    cm = hdr_on and "hdr" or "srgb",\n})'));
+    expect(lua(), contains('/maprisma-hdr/hyprland'));
+    expect((await core.call('displays.get'))['canUndo'], isFalse);
+    expect(user(), endsWith('${HyprConfig.requireLine}\n'));
+    // hdr false takes it out again (and the preamble with it); unknown keys and outputs are refused
+    await core.call('displays.store', {'output': 'HDMI-A-1', 'hdr': false});
+    expect(lua(), isNot(contains('hdr_on')));
+    for (final bad in [
+      {'output': 'HDMI-A-1', 'hdr': 'yes'},
+      {'output': 'HDMI-A-1', 'cm': 'hdr'},
+      {'output': 'nope', 'scale': 1.0},
+      {'output': 'HDMI-A-1', 'scale': 0},
+    ]) {
+      await expectLater(core.call('displays.store', bad), throwsA(isA<RouteError>()), reason: '$bad');
+    }
+    // the page's own `hdr` is not a displays.set field
+    await expectLater(core.call('displays.set', {'output': 'HDMI-A-1', 'hdr': true}), throwsA(isA<RouteError>()));
+  });
+
+  test('the hypr-monitor command stores through the same route', () async {
+    final out = _Sink();
+    final code = await runCli(['hypr-monitor', 'HDMI-A-1', '{"disabled": false, "scale": 1.25}'], service: w.core(desktop: 'Hyprland'), out: out);
+    expect(code, 0);
+    expect(out.text, contains('hypr-monitor HDMI-A-1: kept'));
+    expect(lua(), contains('scale = 1.25'));
+    expect(await runCli(['hypr-monitor', 'HDMI-A-1', 'not json'], service: w.core(desktop: 'Hyprland'), out: _Sink()), 2);
+  });
+
   test('input.get reads live values; input.set writes the input block (touchpad nested) and null takes a value out', () async {
     final core = w.core(desktop: 'Hyprland');
     final r = await core.call('input.get');
@@ -136,4 +170,15 @@ void main() {
     fakeHypr(w, touchpad: true);
     expect((await w.core(desktop: 'Hyprland').call('input.get'))['touchpad'], isTrue);
   });
+}
+
+final class _Sink implements IOSink {
+  final _b = StringBuffer();
+  String get text => _b.toString();
+  @override
+  void writeln([Object? o = '']) => _b.writeln(o);
+  @override
+  void write(Object? o) => _b.write(o);
+  @override
+  dynamic noSuchMethod(Invocation i) => null;
 }

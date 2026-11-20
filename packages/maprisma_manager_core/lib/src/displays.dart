@@ -72,7 +72,8 @@ final class DisplaysService {
   /// `displays.set` {output, and any of: disabled, mode, scale, transform, vrr, position, mirror}.
   Future<Map<String, dynamic>> set(Map<String, dynamic> params) => _serial(() => _set(params));
 
-  Future<Map<String, dynamic>> _set(Map<String, dynamic> params) async {
+  /// The checked change of a `displays.set`/`displays.store` call; `hdr` only for a store.
+  Future<(Map, Map<String, Object?>)> _change(Map<String, dynamic> params, {bool store = false}) async {
     hypr.need();
     final output = params['output'];
     final now = (await get())['monitors'] as List;
@@ -83,6 +84,14 @@ final class DisplaysService {
       switch (key) {
         case 'output':
           continue;
+        // The monitor follows the shared HDR switch (~/.local/state/maprisma-hdr/hyprland, Super+H).
+        case 'hdr' when store:
+          if (value != null && value is! bool) throw RouteError('bad_params', 'hdr');
+          change[key] = value == true ? true : null;
+        // Maprisma Display's scales snap to the mode (any 1/120 step), not to this page's list.
+        case 'scale' when store:
+          if (value is! num || value <= 0 || value > 10) throw RouteError('bad_params', 'scale');
+          change[key] = value.toDouble();
         case 'disabled':
           if (value is! bool) throw RouteError('bad_params', 'disabled');
           if (value && now.cast<Map>().where((m) => m['enabled'] == true && m['name'] != output).isEmpty) {
@@ -112,6 +121,33 @@ final class DisplaysService {
       }
     }
     if (change.isEmpty) throw RouteError('bad_params', tr('nothing to change'));
+    return (mon, change);
+  }
+
+  /// `displays.store` {output, fields…}: Maprisma Display keeps a change it already made live
+  /// (it asked "Keep?" itself), so no countdown here: the values are stored and the file
+  /// written. One hypr-manager.lua for both apps. Not while a change of this page waits to be kept.
+  Future<Map<String, dynamic>> store(Map<String, dynamic> params) => _serial(() async {
+    if (_unkept) throw RouteError('refused', 'A display change in Maprisma Settings is waiting to be kept'); // for Maprisma Display (English only)
+    final (mon, change) = await _change(params, store: true);
+    final state = hypr.read();
+    final monitors = state['monitors'] as Map<String, dynamic>;
+    final output = params['output'] as String;
+    final entry = Map<String, dynamic>.from((monitors[output] as Map?) ?? {'mode': mon['mode'], 'position': mon['position'], 'scale': mon['scale']});
+    for (final MapEntry(:key, :value) in change.entries) {
+      if (value == null) {
+        entry.remove(key);
+      } else {
+        entry[key] = value;
+      }
+    }
+    monitors[output] = entry;
+    return hypr.write(state);
+  });
+
+  Future<Map<String, dynamic>> _set(Map<String, dynamic> params) async {
+    final (mon, change) = await _change(params);
+    final output = params['output'];
     final state = hypr.read();
     // A change on top of one not kept yet goes back to where the first one started.
     if (!_unkept || _undo == null) {
