@@ -216,6 +216,7 @@ exit 1''');
         'maprisma-playground': 'maprisma/playground',
         'maprisma-mail': 'maprisma/mail',
         'maprisma-price-watch': null,
+        'maprisma-display': null,
         'maprisma-bluetooth-monitor': 'maprisma/bluetooth-monitor',
         'maprisma-home': null,
         'maprisma-hue-lights': 'maprisma/hue-lights',

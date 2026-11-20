@@ -586,6 +586,22 @@ final List<AppEntry> builtinCatalog = [
     cosmicIconBuiltIn: true,
   ),
 
+  // Brightness, text size and scale as Omarchy's Display panel, plus resolution, refresh rate,
+  // VRR and HDR (English only). Local until it is published.
+  _rustApp(
+    id: 'display',
+    name: 'Maprisma Display',
+    repo: 'maprisma-display',
+    suffix: 'Display',
+    binary: 'maprisma-display',
+    scripts: const [],
+    data: const [
+      DataPath('{config}/maprisma-display', note: 'settings.json: window, F12, corners, text size'),
+      DataPath('{state}/maprisma-display', note: 'text-originals.json: your font sizes before the first text size change (put back at 12 px)'),
+      DataPath('{config}/hypr/hypr-display.lua', keep: true, note: 'Hyprland: the display settings chosen in the app (hooked from hypr-user.lua)'),
+    ],
+  ),
+
   // The notification centre (history, unread count, do not disturb); the desktops keep showing
   // the popups (docs/plan.md of maprisma-notifier). Its settings page is the Manager's
   // Notifications page (notifications.dart).

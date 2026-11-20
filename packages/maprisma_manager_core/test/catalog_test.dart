@@ -4,11 +4,11 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
-  test('20 apps with unique ids, a key path per component, known dependencies', () {
-    expect(catalog, hasLength(20));
+  test('21 apps with unique ids, a key path per component, known dependencies', () {
+    expect(catalog, hasLength(21));
     final ids = {for (final a in catalog) a.id};
-    expect(ids, hasLength(20));
-    expect(ids, containsAll(['maprisma', 'control', 'launcher', 'theme', 'playground', 'bluetooth', 'home', 'hue', 'llm', 'wlan', 'narrator', 'video', 'tiling', 'icons', 'shell', 'settings', 'notifier', 'dictation']));
+    expect(ids, hasLength(21));
+    expect(ids, containsAll(['maprisma', 'control', 'launcher', 'theme', 'playground', 'bluetooth', 'home', 'hue', 'llm', 'wlan', 'narrator', 'video', 'tiling', 'icons', 'shell', 'settings', 'notifier', 'dictation', 'display']));
     for (final a in catalog) {
       for (final c in a.components) {
         expect(c.paths.where((p) => p.key), hasLength(1), reason: '${a.id}/${c.id}');
