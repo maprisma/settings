@@ -1279,5 +1279,6 @@
   "Summaries, reply and rewrite suggestions, questions about a thread": "Podsumowania, propozycje odpowiedzi i przeredagowania, pytania o wątek",
   "What Mail may send": "Co Mail może wysyłać",
   "Applies to every Ask AI in Maprisma Mail, answers too. Without online helpers Mail uses only local models. Mail's own account settings can only restrict this further.": "Dotyczy każdego Ask AI w Maprisma Mail, także odpowiedzi. Bez asystentów online Mail używa tylko modeli lokalnych. Ustawienia kont w Mail mogą to tylko dodatkowo ograniczyć.",
-  "Off until you switch it on": "Wyłączone, dopóki tego nie włączysz"
+  "Off until you switch it on": "Wyłączone, dopóki tego nie włączysz",
+  "This Maprisma Settings runs as an AppImage: to update it, download the new AppImage from github.com/maprisma/settings/releases": "Ten Maprisma Settings działa jako AppImage: aby go zaktualizować, pobierz nowy plik AppImage z github.com/maprisma/settings/releases"
 }

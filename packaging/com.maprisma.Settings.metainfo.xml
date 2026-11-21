@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.maprisma.Settings</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Maprisma Settings</name>
+  <summary>Install, update and remove the Maprisma apps, and place their bar icons</summary>
+  <description>
+    <p>One window for the whole Maprisma suite: install, update and cleanly remove every Maprisma app,
+    place their panel applets and tray icons on COSMIC, KDE Plasma and Hyprland, and set what all
+    Maprisma apps share (window style, AI helpers and Ask AI rules, language).</p>
+  </description>
+  <launchable type="desktop-id">com.maprisma.Settings.desktop</launchable>
+  <url type="homepage">https://github.com/maprisma/settings</url>
+  <developer id="com.maprisma"><name>Uwe Bruckhaus</name></developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.5.1" date="2026-11-21"/>
+    <release version="0.5.0" date="2026-11-14"/>
+  </releases>
+</component>

@@ -102,9 +102,9 @@ void main() {
 
   tearDown(() => w.dispose());
 
-  CoreService core({String desktop = 'COSMIC'}) {
+  CoreService core({String desktop = 'COSMIC', Map<String, String> extra = const {}}) {
     final c = CoreService(
-      environment: w.env(desktop: desktop, extra: {'PATH': '${w.fakeBin}:$sysbin', 'MAPRISMA_FLUTTER': p.join(w.fakeBin, 'flutter')}),
+      environment: w.env(desktop: desktop, extra: {'PATH': '${w.fakeBin}:$sysbin', 'MAPRISMA_FLUTTER': p.join(w.fakeBin, 'flutter'), ...extra}),
       uid: 1000,
     )..followPanel = (_) async => {'panel': null, 'note': 'test'};
     c.jobs
@@ -389,6 +389,16 @@ void main() {
     expect(job['result']['repair'], isFalse);
     expect(Directory(lib()).existsSync(), isFalse);
     expect(File(p.join(selfDir(), 'helper')).existsSync(), isFalse);
+  });
+
+  test('run as an AppImage: no self-update from a folder, a hint to the new AppImage instead', () async {
+    final c = core(extra: {'APPIMAGE': '/tmp/Maprisma-Settings-x86_64.AppImage'});
+    final job = await run(c, 'install');
+    expect(job['state'], 'failed');
+    expect(job['result']['code'], 'appimage');
+    expect(job['result']['message'], contains('github.com/maprisma/settings/releases'));
+    expect(Directory(lib()).existsSync(), isFalse);
+    expect(Directory(selfDir()).existsSync(), isFalse);
   });
 
   test('the Manager is not removed by itself: self_remove names the terminal script', () async {

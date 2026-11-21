@@ -624,6 +624,10 @@ final class JobEngine {
     _persist(r.job);
     r.log.note(trf('{0} {1} (job {2})', [r.kind.name, r.app.name, r.id]));
     try {
+      // An AppImage copy has no folder build to update or remove: a new AppImage replaces it.
+      if (r.app.id == selfApp && (ctx.environment['APPIMAGE'] ?? '').isNotEmpty) {
+        throw JobFailure('appimage', tr('This Maprisma Settings runs as an AppImage: to update it, download the new AppImage from github.com/maprisma/settings/releases'));
+      }
       final pacman = r.app.components.any((c) => c.kind == InstallKind.pacman);
       final result = r.kind == JobKind.remove
           ? await (pacman ? _removePacman(r) : _remove(r))
