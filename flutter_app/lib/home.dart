@@ -15,23 +15,25 @@ import 'notifications_page.dart';
 import 'pages.dart';
 import 'power_page.dart';
 import 'settings_page.dart';
+import 'system_apps_page.dart';
 import 'theme_page.dart';
 import 'theme.dart';
 import 'voice_page.dart';
 import 'window.dart';
 
 /// The window's pages, in the sidebar's order.
-enum Section { apps, network, bluetooth, appearance, theme, bar, displays, sound, notifications, ai, voice, power, input, applications, time, about, settings }
+enum Section { systemApps, apps, network, bluetooth, appearance, theme, bar, displays, sound, notifications, ai, voice, power, input, applications, time, about, settings }
 
 /// The window as COSMIC Settings lays it out: a sidebar of pages left (icon and name, the open
 /// one highlighted), the page right. Below [condensedBelow] the sidebar hides behind a toggle
-/// that shows it over the whole window until a page is chosen. Ctrl+1…4 open a page, Ctrl+B the
+/// that shows it over the whole window until a page is chosen. Ctrl+1…9 open a page, Ctrl+B the
 /// bar, Ctrl+, the settings, Ctrl+F the list's filter.
 class ManagerHome extends StatefulWidget {
   const ManagerHome({
     super.key,
     required this.core,
     required this.jobs,
+    required this.systemJobs,
     this.onRestart,
     this.checkOnStart = true,
     this.onLanguageChanged,
@@ -46,6 +48,7 @@ class ManagerHome extends StatefulWidget {
   /// The first page (a Section's name); a later `--page` comes through AppWindow.onOpen.
   final String? page;
   final JobsModel jobs;
+  final JobsModel systemJobs;
   final VoidCallback? onRestart;
   final bool checkOnStart;
   final Future<void> Function()? onLanguageChanged, onSettingsChanged;
@@ -59,10 +62,11 @@ class ManagerHome extends StatefulWidget {
 const condensedBelow = 648.0;
 
 class ManagerHomeState extends State<ManagerHome> {
-  Section section = Section.apps;
+  Section section = Section.systemApps;
 
   /// Condensed: the sidebar is shown over the page.
   bool navOpen = false;
+  final systemAppsKey = GlobalKey<SystemAppsPageState>();
   final appsKey = GlobalKey<AppsPageState>();
 
   /// The desktop as apps.list told it ('other': no bar of ours, so no Bar page).
@@ -71,7 +75,8 @@ class ManagerHomeState extends State<ManagerHome> {
   List<Section> get sections => [for (final s in Section.values) if (s != Section.bar || desktop != 'other') s];
 
   static IconData icon(Section s, {bool on = false}) => switch (s) {
-    Section.apps => on ? Icons.apps : Icons.apps_outlined,
+    Section.systemApps => on ? Icons.apps : Icons.apps_outlined,
+    Section.apps => on ? Icons.widgets : Icons.widgets_outlined,
     Section.network => on ? Icons.wifi : Icons.wifi_outlined,
     Section.bluetooth => on ? Icons.bluetooth : Icons.bluetooth_outlined,
     Section.appearance => on ? Icons.palette : Icons.palette_outlined,
@@ -91,6 +96,7 @@ class ManagerHomeState extends State<ManagerHome> {
   };
 
   static String name(Section s) => switch (s) {
+    Section.systemApps => tr('Apps'),
     Section.apps => tr('Maprisma Apps'),
     Section.network => tr('Network & Wireless'),
     Section.bluetooth => tr('Bluetooth'),
@@ -115,7 +121,8 @@ class ManagerHomeState extends State<ManagerHome> {
     if (!sections.contains(s) || s == section) return;
     final left = section;
     setState(() => section = s);
-    // Back on the list: the keyboard goes to its filter again.
+    // Back on either list: the keyboard goes to its filter again.
+    if (s == Section.systemApps) WidgetsBinding.instance.addPostFrameCallback((_) => systemAppsKey.currentState?.filterFocus.requestFocus());
     if (s == Section.apps) WidgetsBinding.instance.addPostFrameCallback((_) => appsKey.currentState?.filterFocus.requestFocus());
     // Back from the bar: the list shows the bar states as they are now.
     if (left == Section.bar) unawaited(appsKey.currentState?.reload());
@@ -145,8 +152,12 @@ class ManagerHomeState extends State<ManagerHome> {
       return true;
     }
     if (k == LogicalKeyboardKey.keyF) {
-      open(Section.apps);
-      appsKey.currentState?.filterFocus.requestFocus();
+      if (section == Section.apps) {
+        appsKey.currentState?.filterFocus.requestFocus();
+      } else {
+        open(Section.systemApps);
+        systemAppsKey.currentState?.filterFocus.requestFocus();
+      }
       return true;
     }
     return false;
@@ -164,19 +175,19 @@ class ManagerHomeState extends State<ManagerHome> {
     });
   }
 
-  /// Esc (esc_close.dart): a page other than Apps, or the condensed window's page list, is open.
-  bool get onSidePage => navOpen || section != Section.apps;
+  /// Esc (esc_close.dart): a page other than the top Apps page, or the condensed window's page list, is open.
+  bool get onSidePage => navOpen || section != Section.systemApps;
 
-  /// Esc there: the page list closes, or Back to Apps.
+  /// Esc there: the page list closes, or Back to the top Apps page.
   void back() {
     if (navOpen) {
       setState(() => navOpen = false);
     } else {
-      open(Section.apps);
+      open(Section.systemApps);
     }
   }
 
-  /// Installs app [id] from a page (Notifications without Maprisma Notifier, Voice without Maprisma Dictation): the Apps page's
+  /// Installs app [id] from a page (Notifications without Maprisma Notifier, Voice without Maprisma Dictation): the Maprisma Apps page's
   /// install job, whose sheet shows there; null while the list doesn't know the app or it
   /// can't be installed on this desktop.
   VoidCallback? _installer(String id) {
@@ -190,7 +201,10 @@ class ManagerHomeState extends State<ManagerHome> {
   }
 
   /// A Section by its name ("power"), null for an unknown one.
-  static Section? sectionNamed(String? name) => Section.values.where((s) => s.name == name).firstOrNull;
+  static Section? sectionNamed(String? name) {
+    if (name == 'system-apps' || name == 'installed-apps') return Section.systemApps;
+    return Section.values.where((s) => s.name == name).firstOrNull;
+  }
 
   @override
   void dispose() {
@@ -199,8 +213,8 @@ class ManagerHomeState extends State<ManagerHome> {
   }
 
   Widget _page(Section s) => switch (s) {
-    // The list stays alive (its filter, scroll and job sheet) while another page is open.
-    Section.apps => const SizedBox.shrink(),
+    // Both app lists stay alive (their filter, scroll and job sheet) while another page is open.
+    Section.systemApps || Section.apps => const SizedBox.shrink(),
     Section.bar => BarEditorPage(key: const ValueKey('bar-page'), core: widget.core, apps: appsKey.currentState?.apps ?? const [], embedded: true, onLeave: () => open(Section.apps)),
     Section.power => PowerPage(key: const ValueKey('power-page'), core: widget.core),
     Section.appearance => AppearancePage(
@@ -234,7 +248,10 @@ class ManagerHomeState extends State<ManagerHome> {
       screenshotKey: widget.screenshotKey,
       onLanguageChanged: () async {
         await widget.onLanguageChanged?.call();
-        await appsKey.currentState?.reload();
+        await Future.wait([
+          ?appsKey.currentState?.reload(),
+          ?systemAppsKey.currentState?.reload(),
+        ]);
       },
       onSettingsChanged: widget.onSettingsChanged,
     ),
@@ -243,6 +260,12 @@ class ManagerHomeState extends State<ManagerHome> {
   @override
   Widget build(BuildContext context) {
     final condensed = MediaQuery.sizeOf(context).width < condensedBelow;
+    final systemApps = SystemAppsPage(
+      key: systemAppsKey,
+      core: widget.core,
+      jobs: widget.systemJobs,
+      checkOnStart: widget.checkOnStart,
+    );
     final apps = AppsPage(
       key: appsKey,
       core: widget.core,
@@ -250,23 +273,28 @@ class ManagerHomeState extends State<ManagerHome> {
       onRestart: widget.onRestart,
       checkOnStart: widget.checkOnStart,
       onOpenBar: () => open(Section.bar),
+      onBack: () => open(Section.systemApps),
       onDesktop: (d) {
         if (d != desktop && mounted) {
           setState(() {
             desktop = d;
-            if (!sections.contains(section)) section = Section.apps;
+            if (!sections.contains(section)) section = Section.systemApps;
           });
         }
       },
     );
     final pages = Stack(
       children: [
-        // Hidden, the list keeps its state but not the keyboard (Esc, F5 there act on the list).
+        // Hidden, each list keeps its state but not the keyboard (Esc, F5 there act on the open list).
+        Offstage(
+          offstage: section != Section.systemApps,
+          child: ExcludeFocus(excluding: section != Section.systemApps, child: TickerMode(enabled: section == Section.systemApps, child: systemApps)),
+        ),
         Offstage(
           offstage: section != Section.apps,
           child: ExcludeFocus(excluding: section != Section.apps, child: TickerMode(enabled: section == Section.apps, child: apps)),
         ),
-        if (section != Section.apps) Positioned.fill(child: _page(section)),
+        if (section != Section.systemApps && section != Section.apps) Positioned.fill(child: _page(section)),
         if (condensed && navOpen)
           Positioned.fill(
             child: CallbackShortcuts(

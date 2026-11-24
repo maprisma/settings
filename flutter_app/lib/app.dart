@@ -22,7 +22,7 @@ import 'window_size.dart';
 /// Maprisma Settings' (formerly Maprisma Manager) window: the list page in the desktop's colours (`desktop.look`, read as
 /// Maprisma Launcher reads them).
 class ManagerApp extends StatefulWidget {
-  const ManagerApp({super.key, required this.core, this.look = const {}, this.onRestart, this.checkOnStart = true, this.jobs, this.screenshots, this.settings = const {}, this.page, this.relook = const Duration(seconds: 5)});
+  const ManagerApp({super.key, required this.core, this.look = const {}, this.onRestart, this.checkOnStart = true, this.jobs, this.systemJobs, this.screenshots, this.settings = const {}, this.page, this.relook = const Duration(seconds: 5)});
 
   /// The page to open first (`--page <page>`, a Section's name); null: Apps.
   final String? page;
@@ -38,6 +38,7 @@ class ManagerApp extends StatefulWidget {
 
   /// Tests pass their own (a shorter poll).
   final JobsModel? jobs;
+  final JobsModel? systemJobs;
 
   /// Where F12 saves its pictures (tests); null: ~/Pictures/Maprisma Settings.
   final String? screenshots;
@@ -61,6 +62,7 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   late Map<String, dynamic> look = widget.look;
   late final JobsModel jobs = widget.jobs ?? JobsModel(widget.core);
+  late final JobsModel systemJobs = widget.systemJobs ?? JobsModel(widget.core, prefix: 'system_jobs');
   Timer? _relook, _lookCooling;
   /// Settings › App windows: see-through windows for all Maprisma apps (window_style.dart).
   WindowStyleWatcher? _windowStyle;
@@ -131,6 +133,7 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
     _lookCooling?.cancel();
     HardwareKeyboard.instance.removeHandler(_f12);
     if (widget.jobs == null) jobs.dispose();
+    if (widget.systemJobs == null) systemJobs.dispose();
     super.dispose();
   }
 
@@ -254,7 +257,7 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       debugShowCheckedModeBanner: false,
       theme: withWindowAlpha(appTheme(MediaQuery.platformBrightnessOf(context), look['colors'] as Map? ?? {}, radius, fonts: look['fonts'] as Map?), alpha),
-      home: ManagerHome(key: _home, page: widget.page, core: widget.core, jobs: jobs, onRestart: widget.onRestart, checkOnStart: widget.checkOnStart, onLanguageChanged: _loadSettings, languageSetting: languageSetting,
+      home: ManagerHome(key: _home, page: widget.page, core: widget.core, jobs: jobs, systemJobs: systemJobs, onRestart: widget.onRestart, checkOnStart: widget.checkOnStart, onLanguageChanged: _loadSettings, languageSetting: languageSetting,
           cornersSetting: cornersSetting, screenshotKey: screenshotKey, onSettingsChanged: _loadSettings),
     );
   }

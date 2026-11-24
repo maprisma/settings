@@ -44,6 +44,7 @@ export 'src/private_files.dart' show PrivateFolder, makePrivateFolder, debugFail
 export 'src/run.dart';
 export 'src/screenshot.dart';
 export 'src/status.dart';
+export 'src/system_apps.dart';
 export 'src/time_lang.dart';
 export 'src/sysproc.dart';
 export 'src/translations.dart';

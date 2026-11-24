@@ -23,10 +23,13 @@ import 'window.dart';
 /// plugins: sections by bar state, a ⋮ menu per app (also on right-click), update marks with the
 /// number of new commits, and the log sheet of the jobs at the bottom.
 class AppsPage extends StatefulWidget {
-  const AppsPage({super.key, required this.core, required this.jobs, this.onRestart, this.checkOnStart = true, this.onOpenBar, this.onDesktop});
+  const AppsPage({super.key, required this.core, required this.jobs, this.onRestart, this.checkOnStart = true, this.onOpenBar, this.onDesktop, this.onBack});
 
   /// The bar button and Ctrl+B open the sidebar's Bar page (null: the bar editor as a page of its own).
   final VoidCallback? onOpenBar;
+
+  /// Esc with nothing to clear goes back to the top Apps page when embedded in the sidebar.
+  final VoidCallback? onBack;
 
   /// The desktop apps.list names (the sidebar has no Bar page on 'other').
   final ValueChanged<String>? onDesktop;
@@ -726,10 +729,13 @@ class AppsPageState extends State<AppsPage> {
         setState(() => sheet = false);
         return KeyEventResult.handled;
       }
-      // Then the window hides (rule 5a; as --toggle: running jobs go on). From the empty filter
-      // too, as in Maprisma Launcher: the filter has the keyboard whenever the list is shown.
+      // Then back to the top Apps page (or hide the window when standalone).
       if (filterFocus.hasPrimaryFocus) {
-        unawaited(AppWindow.hide());
+        if (widget.onBack != null) {
+          widget.onBack!();
+        } else {
+          unawaited(AppWindow.hide());
+        }
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored; // esc_close.dart hides the window

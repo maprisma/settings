@@ -93,14 +93,14 @@ esac
       }
       // the list's filter has the keyboard; on another page Esc must not reach the hidden list:
       // it goes back to Apps (rule 5a) with the filter as it was
-      await tester.enterText(find.byKey(const ValueKey('filter')), 'wlan');
+      await tester.enterText(find.byKey(const ValueKey('system-filter')), 'firefox');
       await settle(tester, 2);
       await nav(tester, 'power');
       expect(find.byKey(const ValueKey('sidebar')), condensed ? findsNothing : findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester, 2);
       expect(find.byKey(const ValueKey('power-page')), findsNothing);
-      expect(tester.widget<TextField>(find.byKey(const ValueKey('filter'), skipOffstage: false)).controller!.text, 'wlan');
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('system-filter'), skipOffstage: false)).controller!.text, 'firefox');
       await nav(tester, 'power');
       for (final s in ['Power mode', 'Power saving options', 'Extended battery life', 'High performance']) {
         expect(find.text(s), findsOneWidget, reason: s);
@@ -126,7 +126,7 @@ esac
       await settle(tester);
       expect(((jsonDecode(File(shellFile()).readAsStringSync()) as Map)['idle'] as Map)['whilePlaying'], isTrue);
 
-      // Ctrl+, the settings; Ctrl+1 back to the list
+      // Ctrl+, the settings; Ctrl+1 back to Apps; Ctrl+2 to Maprisma Apps
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.comma);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
@@ -138,6 +138,11 @@ esac
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await settle(tester);
       expect(find.byKey(const ValueKey('settings-page')), findsNothing);
+      expect(find.byKey(const ValueKey('system-apps-title')), findsOneWidget);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(tester);
       expect(find.byKey(const ValueKey('apps-title')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

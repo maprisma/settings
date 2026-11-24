@@ -201,7 +201,7 @@ void main() {
     final jobs = JobsModel(call(), every: const Duration(milliseconds: 200));
     addTearDown(jobs.dispose);
     final look = await tester.runAsync(() => call()('desktop.look'));
-    await tester.pumpWidget(ManagerApp(core: call(), look: {...?look, 'colors': _dark}, checkOnStart: false, relook: null, jobs: jobs));
+    await tester.pumpWidget(ManagerApp(core: call(), look: {...?look, 'colors': _dark}, checkOnStart: false, relook: null, jobs: jobs, page: 'apps'));
     await settle(tester);
     return jobs;
   }
@@ -646,7 +646,7 @@ void main() {
     addTearDown(tester.view.reset);
     final jobs = JobsModel(call(), every: const Duration(milliseconds: 200));
     addTearDown(jobs.dispose);
-    await tester.pumpWidget(ManagerApp(core: call(), checkOnStart: false, jobs: jobs, onRestart: () => restarted = true));
+    await tester.pumpWidget(ManagerApp(core: call(), checkOnStart: false, jobs: jobs, page: 'apps', onRestart: () => restarted = true));
     await settle(tester);
     final j = JobView(id: 'x', app: 'settings', name: 'Maprisma Settings', kind: 'update')
       ..data = {'state': 'succeeded', 'result': {'ok': true, 'restart': true}};

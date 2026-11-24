@@ -21,7 +21,8 @@ void main() {
       setting = code;
       await tester.pumpWidget(ManagerApp(key: ValueKey(code), core: core, checkOnStart: false));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('apps-title')), findsOneWidget);
+      expect(find.byKey(const ValueKey('system-apps-title')), findsOneWidget);
+      expect(find.text(tr('Apps')), findsWidgets);
       expect(find.text(tr('Maprisma Apps')), findsWidgets);
       final context = tester.element(find.byType(Scaffold).first);
       expect(Localizations.localeOf(context).languageCode, code);

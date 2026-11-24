@@ -32,10 +32,11 @@ import 'run.dart';
 import 'sound.dart';
 import 'status.dart';
 import 'sysproc.dart';
+import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.5.1';
+const coreVersion = '0.6.0';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -319,6 +320,17 @@ final class CoreService {
         if (del is! bool) throw RouteError('bad_params', 'delete_settings');
         return (await removePlan(ctx, findApp(id)!, deleteSettings: del)).json;
       },
+      // Installed non-Maprisma apps (the top Apps page: system_apps.dart).
+      'system_apps.list': (_) => systemApps.list(),
+      'system_apps.check_updates': (params) => systemApps.checkUpdates(force: params['force'] == true),
+      'system_apps.open': (params) => systemApps.open(params),
+      'system_apps.open_url': (params) => systemApps.openUrl(params),
+      'system_apps.autostart': (params) => systemApps.setAutostart(params),
+      'system_apps.remove_plan': (params) => systemApps.removePlan(params),
+      'system_jobs.start': (params) => systemApps.jobStart(params),
+      'system_jobs.get': (params) async => systemApps.jobGet(params),
+      'system_jobs.log': (params) async => systemApps.jobLog(params),
+      'system_jobs.cancel': (params) async => systemApps.jobCancel(params),
     };
   }
 
@@ -368,6 +380,9 @@ final class CoreService {
 
   /// Bar icon changes (icons.*).
   late final IconService icons = IconService(ctx, jobs);
+
+  /// Installed non-Maprisma apps (system_apps.*, system_jobs.*).
+  late final SystemAppsService systemApps = SystemAppsService(ctx, jobs.startDetached);
 
   Future<Map<String, dynamic>> Function(List<ProcInfo> before)? _followPanel;
 

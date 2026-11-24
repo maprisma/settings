@@ -10,9 +10,10 @@ import 'core_call.dart';
 /// at a time and queues the rest; this follows them (`jobs.get` + `jobs.log` every [every]) for the
 /// log sheet and tells the page when one has ended.
 class JobsModel extends ChangeNotifier {
-  JobsModel(this.core, {this.every = const Duration(milliseconds: 400)});
+  JobsModel(this.core, {this.every = const Duration(milliseconds: 400), this.prefix = 'jobs'});
   final CoreCall core;
   final Duration every;
+  final String prefix;
 
   /// Every job started here, oldest first: `{job, app, name, kind, log, next, ...}`.
   final List<JobView> jobs = [];
@@ -41,7 +42,7 @@ class JobsModel extends ChangeNotifier {
 
   /// Starts a job; the core refuses with `busy`, `unsupported_yet` … (thrown as [ServiceError]).
   Future<JobView> start({required String app, required String name, required String kind, Map<String, dynamic> options = const {}, bool password = false}) async {
-    final r = await core('jobs.start', {'app': app, 'kind': kind, 'options': options});
+    final r = await core('$prefix.start', {'app': app, 'kind': kind, 'options': options});
     final j = JobView(id: r['id'] as String, app: app, name: name, kind: kind, password: password)..data = r;
     jobs.add(j);
     if (jobs.length > 30) jobs.removeAt(0);
@@ -52,7 +53,7 @@ class JobsModel extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> cancel(JobView j) async {
-    final r = await core('jobs.cancel', {'id': j.id});
+    final r = await core('$prefix.cancel', {'id': j.id});
     await _poll();
     return r;
   }
@@ -66,13 +67,13 @@ class JobsModel extends ChangeNotifier {
         if (j.finished && j.logDone) continue;
         try {
           if (!j.finished) {
-            final d = await core('jobs.get', {'id': j.id});
+            final d = await core('$prefix.get', {'id': j.id});
             j.data = d;
             changed = true;
           }
           // the log: everything new, at most a few reads per tick
           for (var i = 0; i < 4; i++) {
-            final l = await core('jobs.log', {'id': j.id, 'from': j.next});
+            final l = await core('$prefix.log', {'id': j.id, 'from': j.next});
             final text = '${l['text'] ?? ''}';
             j.next = l['next'] as int? ?? j.next;
             if (text.isNotEmpty) {

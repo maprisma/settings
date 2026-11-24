@@ -90,7 +90,11 @@ class _JobSheetState extends State<JobSheet> {
             : restart
             ? tr('The new build is checked: Maprisma Settings restarts with it now.')
             : ok
-            ? (result['up_to_date'] == true ? tr('Nothing new: the installed build is the folder\'s.') : tr('Done.'))
+            ? (result['up_to_date'] == true
+                  ? tr('Nothing new: the installed build is the folder\'s.')
+                  : result['message'] is String && (result['message'] as String).isNotEmpty
+                  ? '${result['message']}'
+                  : tr('Done.'))
             : '${result['message'] ?? result['code'] ?? j.state}';
         return Material(
           key: ValueKey('job-sheet'),

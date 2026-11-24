@@ -31,8 +31,9 @@ impl Item {
 }
 
 /// The pages the menu offers, as the sidebar names them (flutter_app/lib/home.dart Section).
-pub const PAGES: [(&str, &str); 8] = [
-    ("apps", "Apps"),
+pub const PAGES: [(&str, &str); 9] = [
+    ("systemApps", "Apps"),
+    ("apps", "Maprisma Apps"),
     ("network", "Network & Wireless"),
     ("bluetooth", "Bluetooth"),
     ("sound", "Sound"),
@@ -71,10 +72,12 @@ mod tests {
     #[test]
     fn menu_actions() {
         let m = menu();
-        assert_eq!(m.children.len(), 12);
+        assert_eq!(m.children.len(), 13);
         assert_eq!(m.activate(1), Some(Action::Open(None)));
-        assert_eq!(m.activate(12), Some(Action::Open(Some("bluetooth"))));
-        assert_eq!(m.find(12).unwrap().label, "Bluetooth");
+        assert_eq!(m.activate(10), Some(Action::Open(Some("systemApps"))));
+        assert_eq!(m.find(10).unwrap().label, "Apps");
+        assert_eq!(m.activate(13), Some(Action::Open(Some("bluetooth"))));
+        assert_eq!(m.find(13).unwrap().label, "Bluetooth");
         assert_eq!(m.activate(4), Some(Action::Quit));
         assert_eq!(m.activate(2), None);
         assert_eq!(m.activate(0), None);
