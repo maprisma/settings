@@ -1414,7 +1414,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.",
     "Where the questions go": "Where the questions go",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.",
-    "Works with Claude Code; {0} can't search the web here": "Works with Claude Code; {0} can't search the web here"
+    "Works with Claude Code; {0} can't search the web here": "Works with Claude Code; {0} can't search the web here",
+    "App skin": "App skin",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Visual accent for cards and borders; Native keeps your desktop theme untouched.",
+    "Native": "Native",
+    "Synthwave": "Synthwave",
+    "Cozy": "Cozy",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "de": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} Byte Ausgabe ausgelassen]\n",
@@ -2830,7 +2838,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Wenn eine App etwas nicht findet, zum Beispiel eine App zum Installieren, darf der Helfer im Web suchen und Seiten lesen, sonst nichts. Die App prüft die Ergebnisse, bevor sie etwas anbietet. Genutzt von „Frag die KI“ in Maprisma Launcher; weitere Apps folgen. Aus, bis du es einschaltest.",
     "Where the questions go": "Wohin die Fragen gehen",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Mit Websuche gehen die Frage und die Suchen des Helfers an den Anbieter des Helfers, und die Seiten, die er liest, werden aus dem Web geladen. Er bekommt keine anderen Werkzeuge: keine Befehle, keine Dateien.",
-    "Works with Claude Code; {0} can't search the web here": "Geht mit Claude Code; {0} kann hier nicht im Web suchen"
+    "Works with Claude Code; {0} can't search the web here": "Geht mit Claude Code; {0} kann hier nicht im Web suchen",
+    "App skin": "App-Design",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Visueller Akzent für Karten und Rahmen; Nativ lässt dein Desktop-Design unverändert.",
+    "Native": "Nativ",
+    "Synthwave": "Synthwave",
+    "Cozy": "Gemütlich",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "fr": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} octets de sortie omis]\n",
@@ -4246,7 +4262,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Quand une app ne trouve pas quelque chose, par exemple une app à installer, l'assistant peut chercher sur le web et lire des pages, rien d'autre. L'app vérifie les résultats avant de proposer quoi que ce soit. Utilisé par « Demander à l'IA » de Maprisma Launcher ; d'autres apps suivront. Désactivé tant que vous ne l'activez pas.",
     "Where the questions go": "Où vont les questions",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Avec la recherche web, la question et les recherches de l'assistant vont au fournisseur de l'assistant, et les pages qu'il lit sont chargées depuis le web. Il n'a aucun autre outil : ni commandes, ni fichiers.",
-    "Works with Claude Code; {0} can't search the web here": "Fonctionne avec Claude Code ; {0} ne peut pas chercher sur le web ici"
+    "Works with Claude Code; {0} can't search the web here": "Fonctionne avec Claude Code ; {0} ne peut pas chercher sur le web ici",
+    "App skin": "Apparence",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Accent visuel pour les cartes et bordures ; Natif conserve exactement le thème du bureau.",
+    "Native": "Natif",
+    "Synthwave": "Synthwave",
+    "Cozy": "Cosy",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "es": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de salida omitidos]\n",
@@ -5662,7 +5686,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Cuando una app no encuentra algo, por ejemplo una app para instalar, el asistente puede buscar en la web y leer páginas, nada más. La app comprueba los resultados antes de ofrecer nada. Lo usa «Preguntar a la IA» de Maprisma Launcher; más apps después. Desactivado hasta que lo actives.",
     "Where the questions go": "Adónde van las preguntas",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Con la búsqueda web, la pregunta y las búsquedas del asistente van al proveedor del asistente, y las páginas que lee se descargan de la web. No tiene otras herramientas: ni comandos ni archivos.",
-    "Works with Claude Code; {0} can't search the web here": "Funciona con Claude Code; {0} no puede buscar en la web aquí"
+    "Works with Claude Code; {0} can't search the web here": "Funciona con Claude Code; {0} no puede buscar en la web aquí",
+    "App skin": "Estilo visual",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Acento visual para tarjetas y bordes; Nativo mantiene intacto el tema del escritorio.",
+    "Native": "Nativo",
+    "Synthwave": "Synthwave",
+    "Cozy": "Acogedor",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "it": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} byte di output omessi]\n",
@@ -7078,7 +7110,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Quando un'app non trova qualcosa, per esempio un'app da installare, l'assistente può cercare sul web e leggere pagine, nient'altro. L'app controlla i risultati prima di proporre qualcosa. Usato da «Chiedi all'IA» di Maprisma Launcher; altre app in seguito. Spento finché non lo attivi.",
     "Where the questions go": "Dove vanno le domande",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Con la ricerca web, la domanda e le ricerche dell'assistente vanno al fornitore dell'assistente, e le pagine che legge vengono scaricate dal web. Non ha altri strumenti: niente comandi, niente file.",
-    "Works with Claude Code; {0} can't search the web here": "Funziona con Claude Code; {0} qui non può cercare sul web"
+    "Works with Claude Code; {0} can't search the web here": "Funziona con Claude Code; {0} qui non può cercare sul web",
+    "App skin": "Stile app",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Accento visivo per schede e bordi; Nativo mantiene intatto il tema del desktop.",
+    "Native": "Nativo",
+    "Synthwave": "Synthwave",
+    "Cozy": "Accogliente",
+    "Terminal": "Terminale",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "pt": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de saída omitidos]\n",
@@ -8494,7 +8534,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Quando uma app não encontra algo, por exemplo uma app para instalar, o assistente pode pesquisar na web e ler páginas, mais nada. A app verifica os resultados antes de oferecer qualquer coisa. Usado por «Perguntar à IA» do Maprisma Launcher; mais apps depois. Desligado até o ligar.",
     "Where the questions go": "Para onde vão as perguntas",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Com a pesquisa na web, a pergunta e as pesquisas do assistente vão para o fornecedor do assistente, e as páginas que lê são obtidas da web. Não tem outras ferramentas: nem comandos, nem ficheiros.",
-    "Works with Claude Code; {0} can't search the web here": "Funciona com o Claude Code; {0} não pode pesquisar na web aqui"
+    "Works with Claude Code; {0} can't search the web here": "Funciona com o Claude Code; {0} não pode pesquisar na web aqui",
+    "App skin": "Estilo da app",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Destaque visual para cartões e contornos; Nativo mantém intacto o tema do ambiente de trabalho.",
+    "Native": "Nativo",
+    "Synthwave": "Synthwave",
+    "Cozy": "Acolhedor",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "nl": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes uitvoer weggelaten]\n",
@@ -9910,7 +9958,15 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Als een app iets niet vindt, bijvoorbeeld een app om te installeren, mag de helper op het web zoeken en pagina's lezen, verder niets. De app controleert de resultaten voordat ze iets aanbiedt. Gebruikt door ‘Vraag de AI’ in Maprisma Launcher; later meer apps. Uit totdat je het aanzet.",
     "Where the questions go": "Waar de vragen naartoe gaan",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Met zoeken op het web gaan de vraag en de zoekopdrachten van de helper naar de aanbieder van de helper, en de pagina's die hij leest worden van het web gehaald. Hij krijgt geen ander gereedschap: geen opdrachten, geen bestanden.",
-    "Works with Claude Code; {0} can't search the web here": "Werkt met Claude Code; {0} kan hier niet op het web zoeken"
+    "Works with Claude Code; {0} can't search the web here": "Werkt met Claude Code; {0} kan hier niet op het web zoeken",
+    "App skin": "App-stijl",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Visueel accent voor kaarten en randen; Natief laat je bureaubladthema ongemoeid.",
+    "Native": "Natief",
+    "Synthwave": "Synthwave",
+    "Cozy": "Gezellig",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   },
   "pl": {
     "\n» [{0} bytes of output left out]\n": "\n» [Pominięto {0} bajtów danych]\n",
@@ -11326,6 +11382,14 @@ const catalogs = <String, Map<String, String>>{
     "When an app can't find something, for example an app to install, the helper may search the web and read pages, nothing else. The app checks the results before it offers anything. Used by Maprisma Launcher's Ask AI; more apps later. Off until you turn it on.": "Gdy aplikacja czegoś nie znajdzie, na przykład aplikacji do zainstalowania, pomocnik może szukać w sieci i czytać strony, nic więcej. Aplikacja sprawdza wyniki, zanim cokolwiek zaproponuje. Używa tego „Zapytaj AI” w Maprisma Launcher; więcej aplikacji później. Wyłączone, dopóki tego nie włączysz.",
     "Where the questions go": "Dokąd trafiają pytania",
     "With web search on, the question and the helper's searches go to the helper's provider, and the pages it reads are fetched from the web. It gets no other tools: no commands, no files.": "Przy wyszukiwaniu w sieci pytanie i wyszukiwania pomocnika trafiają do dostawcy pomocnika, a strony, które czyta, są pobierane z sieci. Nie dostaje innych narzędzi: żadnych poleceń, żadnych plików.",
-    "Works with Claude Code; {0} can't search the web here": "Działa z Claude Code; {0} nie może tu szukać w sieci"
+    "Works with Claude Code; {0} can't search the web here": "Działa z Claude Code; {0} nie może tu szukać w sieci",
+    "App skin": "Skórka aplikacji",
+    "Visual accent for cards and borders; Native keeps your desktop theme untouched.": "Wizualny akcent kart i obramowań; Natywny pozostawia motyw pulpitu bez zmian.",
+    "Native": "Natywny",
+    "Synthwave": "Synthwave",
+    "Cozy": "Przytulny",
+    "Terminal": "Terminal",
+    "Disco": "Disco",
+    "Zen": "Zen"
   }
 };

@@ -14,6 +14,7 @@ import 'home.dart';
 import 'core_call.dart';
 import 'esc_close.dart';
 import 'jobs_model.dart';
+import 'skin.dart';
 import 'theme.dart';
 import 'window_style.dart';
 import 'window.dart';
@@ -55,8 +56,9 @@ final windowShot = GlobalKey(debugLabel: 'window');
 class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
   String languageSetting = 'auto';
 
-  /// Settings › Corners (windows, slight, rounded, square) and F12 saves a screenshot.
+  /// Settings › Corners (windows, slight, rounded, square), App skin and F12 saves a screenshot.
   late String cornersSetting = widget.settings['corners'] as String? ?? 'windows';
+  late String skinSetting = normalizeSkin(widget.settings[skinKey] as String?);
   late bool screenshotKey = widget.settings['screenshot_key'] != false;
   final _navigator = GlobalKey<NavigatorState>();
   final _messenger = GlobalKey<ScaffoldMessengerState>();
@@ -115,8 +117,10 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
       languageSetting = settings['language'] as String? ?? 'auto';
       configureLanguage(languageSetting);
       cornersSetting = settings['corners'] as String? ?? 'windows';
+      skinSetting = normalizeSkin(settings[skinKey] as String?);
       screenshotKey = settings['screenshot_key'] != false;
       if (mounted) setState(() {});
+      _titlebar();
     } on Object {
       // Older cores and test doubles can omit settings.
     }
@@ -164,7 +168,7 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
 
   void _titlebar() {
     final platform = WidgetsBinding.instance.platformDispatcher.platformBrightness;
-    final theme = appTheme(platform, look['colors'] as Map? ?? {}, 12, fonts: look['fonts'] as Map?);
+    final theme = appTheme(platform, look['colors'] as Map? ?? {}, 12, fonts: look['fonts'] as Map?, skin: skinSetting);
     final s = theme.colorScheme;
     AppWindow.titlebar(theme.brightness == Brightness.dark, background: hexOf(s.surface), foreground: hexOf(s.onSurface), border: hexOf(s.outlineVariant));
   }
@@ -256,9 +260,9 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
       supportedLocales: [for (final code in languageNames.keys) Locale(code)],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       debugShowCheckedModeBanner: false,
-      theme: withWindowAlpha(appTheme(MediaQuery.platformBrightnessOf(context), look['colors'] as Map? ?? {}, radius, fonts: look['fonts'] as Map?), alpha),
+      theme: withWindowAlpha(appTheme(MediaQuery.platformBrightnessOf(context), look['colors'] as Map? ?? {}, radius, fonts: look['fonts'] as Map?, skin: skinSetting), alpha),
       home: ManagerHome(key: _home, page: widget.page, core: widget.core, jobs: jobs, systemJobs: systemJobs, onRestart: widget.onRestart, checkOnStart: widget.checkOnStart, onLanguageChanged: _loadSettings, languageSetting: languageSetting,
-          cornersSetting: cornersSetting, screenshotKey: screenshotKey, onSettingsChanged: _loadSettings),
+          cornersSetting: cornersSetting, skinSetting: skinSetting, screenshotKey: screenshotKey, onSettingsChanged: _loadSettings),
     );
   }
 }

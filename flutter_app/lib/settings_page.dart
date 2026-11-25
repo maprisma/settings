@@ -6,6 +6,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf, 
 
 import 'core_call.dart';
 import 'settings_widgets.dart';
+import 'skin.dart';
 import 'theme.dart';
 import 'window_style.dart';
 
@@ -17,12 +18,13 @@ class ManagerSettingsPage extends StatefulWidget {
     required this.core,
     required this.languageSetting,
     required this.cornersSetting,
+    this.skinSetting = 'native',
     required this.screenshotKey,
     this.onLanguageChanged,
     this.onSettingsChanged,
   });
   final CoreCall core;
-  final String languageSetting, cornersSetting;
+  final String languageSetting, cornersSetting, skinSetting;
   final bool screenshotKey;
   final Future<void> Function()? onLanguageChanged, onSettingsChanged;
   @override
@@ -94,6 +96,15 @@ class ManagerSettingsPageState extends State<ManagerSettingsPage> {
                 ('square', tr('Square')),
               ],
               onChanged: (v) => _set('corners', v),
+            ),
+            SettingsChoice<String>(
+              key: const ValueKey('settings-skin'),
+              title: tr('App skin'),
+              description: tr('Visual accent for cards and borders; Native keeps your desktop theme untouched.'),
+              value: normalizeSkin(widget.skinSetting),
+              choices: [for (final s in appSkins) (s, skinLabel(s, tr))],
+              swatch: (s) => skinStyle(s)?.accent,
+              onChanged: (v) => _set(skinKey, v),
             ),
             SettingsToggle(
               key: const ValueKey('settings-screenshot-key'),

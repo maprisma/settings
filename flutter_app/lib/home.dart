@@ -15,6 +15,7 @@ import 'notifications_page.dart';
 import 'pages.dart';
 import 'power_page.dart';
 import 'settings_page.dart';
+import 'skin.dart';
 import 'system_apps_page.dart';
 import 'theme_page.dart';
 import 'theme.dart';
@@ -39,6 +40,7 @@ class ManagerHome extends StatefulWidget {
     this.onLanguageChanged,
     this.languageSetting = 'auto',
     this.cornersSetting = 'windows',
+    this.skinSetting = 'native',
     this.screenshotKey = true,
     this.onSettingsChanged,
     this.page,
@@ -52,7 +54,7 @@ class ManagerHome extends StatefulWidget {
   final VoidCallback? onRestart;
   final bool checkOnStart;
   final Future<void> Function()? onLanguageChanged, onSettingsChanged;
-  final String languageSetting, cornersSetting;
+  final String languageSetting, cornersSetting, skinSetting;
   final bool screenshotKey;
   @override
   State<ManagerHome> createState() => ManagerHomeState();
@@ -245,6 +247,7 @@ class ManagerHomeState extends State<ManagerHome> {
       core: widget.core,
       languageSetting: widget.languageSetting,
       cornersSetting: widget.cornersSetting,
+      skinSetting: widget.skinSetting,
       screenshotKey: widget.screenshotKey,
       onLanguageChanged: () async {
         await widget.onLanguageChanged?.call();
@@ -364,12 +367,17 @@ class Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final radius = cornerSizes(context);
+    final skin = activeSkinStyle(context);
     return Container(
       key: const ValueKey('sidebar'),
       width: full ? double.infinity : width,
       margin: EdgeInsets.fromLTRB(8, full ? 4 : 8, full ? 8 : 0, 8),
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: scheme.surfaceContainer, borderRadius: BorderRadius.circular(radius.control)),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(radius.control),
+        border: skin == null ? null : Border.all(color: skin.borderTint.withValues(alpha: 0.48), width: skin.borderWidth),
+      ),
       child: FocusTraversalGroup(
         // The pages scroll in a low window; Settings stays at the bottom.
         child: Column(

@@ -36,7 +36,7 @@ import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.6.1';
+const coreVersion = '0.7.0';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -91,6 +91,7 @@ final class CoreService {
           'language': settings.str('language') ?? 'auto',
           'systemLanguage': systemLanguage(ctx.environment),
           'corners': settings.corners,
+          'skin': settings.skin,
           'screenshot_key': settings.screenshotKey,
           'ai_updates': settings.values['ai_updates'] == true,
           // The window's size as the user left it (rule 5a), null when missing or broken.
@@ -108,11 +109,12 @@ final class CoreService {
         configureLanguage(value as String, ctx.environment);
         return {'language': value};
       },
-      // The settings menu: Corners (windows, slight, rounded, square) and F12 saves a screenshot.
+      // The settings menu: Corners (windows, slight, rounded, square), App skin and F12 saves a screenshot.
       'settings.set': (params) async {
         final key = params['key'], value = params['value'];
         final ok = switch (key) {
           'corners' => cornerSettings.contains(value),
+          'skin' => skinSettings.contains(value),
           'screenshot_key' => value is bool,
           // Let AI do the updates (off by default); its helper is the shared one (ai.set_helper).
           'ai_updates' => value is bool,
@@ -404,7 +406,11 @@ final class CoreService {
   /// One setting into settings.json; the others stay (written whole, then renamed into place).
   void _saveSetting(String key, Object? value) {
     final settings = Map<String, dynamic>.of(Settings.load(ctx.paths).values);
-    settings[key] = value;
+    if (key == 'skin' && value == 'native') {
+      settings.remove(key);
+    } else {
+      settings[key] = value;
+    }
     final file = File(ctx.paths.settingsFile);
     file.parent.createSync(recursive: true);
     final temporary = File('${file.path}.tmp');

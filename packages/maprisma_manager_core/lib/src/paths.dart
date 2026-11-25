@@ -247,12 +247,22 @@ final class Settings {
     return cornerSettings.contains(v) ? v as String : 'windows';
   }
 
+  /// App skin: "native" (desktop theme untouched, also for a missing or unknown value), or one of
+  /// synthwave, cozy, terminal, disco, zen.
+  String get skin {
+    final v = values['skin'];
+    return skinSettings.contains(v) ? v as String : 'native';
+  }
+
   /// F12 saves a screenshot: on unless switched off.
   bool get screenshotKey => values['screenshot_key'] != false;
 }
 
 /// The values of the Corners setting.
 const cornerSettings = ['windows', 'slight', 'rounded', 'square'];
+
+/// The values of the App skin setting.
+const skinSettings = ['native', 'synthwave', 'cozy', 'terminal', 'disco', 'zen'];
 
 /// Default candidates for the projects folder after MAPRISMA_PROJECTS and the settings file.
 const defaultProjectCandidates = ['{home}/Projects', '/mnt/Data/Projects'];

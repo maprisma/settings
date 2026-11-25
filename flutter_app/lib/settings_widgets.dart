@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'skin.dart';
 import 'theme.dart';
 
 /// COSMIC Settings' page parts in Flutter (libcosmic `settings::section`, `settings::item`,
@@ -81,6 +82,7 @@ class SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final radius = cornerSizes(context).control;
+    final skin = activeSkinStyle(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -90,7 +92,11 @@ class SettingsSection extends StatelessWidget {
             child: Text(title!, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           ),
         Container(
-          decoration: BoxDecoration(color: scheme.surfaceContainer, borderRadius: BorderRadius.circular(radius)),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(radius),
+            border: skin == null ? null : Border.all(color: skin.borderTint.withValues(alpha: 0.48), width: skin.borderWidth),
+          ),
           clipBehavior: Clip.antiAlias,
           child: Material(
             type: MaterialType.transparency,
@@ -175,7 +181,7 @@ class SettingsToggle extends StatelessWidget {
 
 /// A drop-down row ([choices]: value → label).
 class SettingsChoice<T> extends StatelessWidget {
-  const SettingsChoice({super.key, required this.title, this.description, required this.value, required this.choices, required this.onChanged, this.disabled = const {}});
+  const SettingsChoice({super.key, required this.title, this.description, required this.value, required this.choices, required this.onChanged, this.disabled = const {}, this.swatch});
   final String title;
   final String? description;
   final T value;
@@ -184,6 +190,7 @@ class SettingsChoice<T> extends StatelessWidget {
   /// Choices shown but not selectable (an engine that isn't available).
   final Set<T> disabled;
   final ValueChanged<T>? onChanged;
+  final Color? Function(T value)? swatch;
   @override
   Widget build(BuildContext context) => SettingsItem(
     title: title,
@@ -197,7 +204,17 @@ class SettingsChoice<T> extends StatelessWidget {
         items: [for (final (v, label) in choices) DropdownMenuItem<T>(
             value: v,
             enabled: !disabled.contains(v),
-            child: Text(label, style: disabled.contains(v) ? TextStyle(color: Theme.of(context).disabledColor) : null),
+            child: switch (swatch?.call(v)) {
+              final color? => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text(label, style: disabled.contains(v) ? TextStyle(color: Theme.of(context).disabledColor) : null),
+                ],
+              ),
+              null => Text(label, style: disabled.contains(v) ? TextStyle(color: Theme.of(context).disabledColor) : null),
+            },
           ),
         ],
         onChanged: onChanged == null ? null : (v) => v == null ? null : onChanged!(v),
