@@ -210,11 +210,16 @@ void main() {
 
   /// Opens the ⋮ menu of an app's row (scrolled into view first: the list builds lazily).
   Future<void> tapAction(WidgetTester tester, String id) async {
-    if (find.byKey(ValueKey('app-$id')).evaluate().isEmpty) {
-      await tester.scrollUntilVisible(find.byKey(ValueKey('app-$id')), 120,
-          scrollable: find.descendant(of: find.byKey(const ValueKey('app-list')), matching: find.byType(Scrollable)).first);
+    final target = find.byKey(ValueKey('app-$id'));
+    if (target.evaluate().isEmpty) {
+      final scrollable = find.descendant(of: find.byKey(const ValueKey('app-list')), matching: find.byType(Scrollable)).first;
+      try {
+        await tester.scrollUntilVisible(target, 120, scrollable: scrollable);
+      } on StateError {
+        await tester.scrollUntilVisible(target, -120, scrollable: scrollable);
+      }
     }
-    await tester.ensureVisible(find.byKey(ValueKey('app-$id')));
+    await tester.ensureVisible(target);
     await tester.pump();
     await tester.tap(rowAction(id));
     await settle(tester, 3);
@@ -267,10 +272,10 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('filter')), 'wlan');
       await settle(tester, 2);
       expect(find.text('Maprisma WLAN Monitor'), findsOneWidget);
-      expect(find.text('Maprisma Hue Lights'), findsNothing);
+      expect(find.text('Maprisma Lights'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester, 4);
-      expect(find.text('Maprisma Hue Lights'), findsOneWidget);
+      expect(find.text('Maprisma Lights'), findsOneWidget);
     });
   }
 
@@ -306,10 +311,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('legend-update')));
       await settle(tester, 4);
       expect(find.text('Maprisma WLAN Monitor'), findsOneWidget);
-      expect(find.text('Maprisma Hue Lights'), findsNothing);
+      expect(find.text('Maprisma Lights'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester, 4);
-      expect(find.text('Maprisma Hue Lights'), findsOneWidget);
+      expect(find.text('Maprisma Lights'), findsOneWidget);
       expect(find.byIcon(Icons.filter_alt), findsNothing);
     });
   }
@@ -339,7 +344,12 @@ void main() {
     };
     w.writeFile(cache, jsonEncode(data));
 
-    await open(tester, 900, height: 1600);
+    await open(tester, 900, height: 2200);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('new-clock')),
+      200,
+      scrollable: find.descendant(of: find.byKey(const ValueKey('app-list')), matching: find.byType(Scrollable)).first,
+    );
     expect(find.text('New, not in the catalog'), findsOneWidget);
     expect(find.byKey(const ValueKey('new-maprisma-sky')), findsOneWidget);
     expect(find.byKey(const ValueKey('new-clock')), findsOneWidget);

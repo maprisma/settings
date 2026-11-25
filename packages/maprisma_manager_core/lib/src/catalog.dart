@@ -32,6 +32,8 @@ AppEntry _rustApp({
   required String binary,
   required List<String> scripts,
   String? github,
+  String? appIcon,
+  List<InstalledPath> morePaths = const [],
   List<DataPath> data = const [],
   List<RuntimePath> runtime = const [],
   String? iconNote,
@@ -44,6 +46,7 @@ AppEntry _rustApp({
     id: id,
     name: name,
     kind: 'rust',
+    appIcon: appIcon,
     desktops: desktops,
     open: ['{bin}/$binary', '--window'],
     inputs: [Input(repo, github: github)],
@@ -63,6 +66,7 @@ AppEntry _rustApp({
           InstalledPath('{apps}/$appId.desktop', PathKind.file),
           InstalledPath('{apps}/$appId.Window.desktop', PathKind.file),
           InstalledPath('{autostart}/$appId.Tray.desktop', PathKind.file, note: 'OnlyShowIn=KDE'),
+          ...morePaths,
         ],
       ),
     ],
@@ -554,7 +558,7 @@ final List<AppEntry> builtinCatalog = [
   ),
   _rustApp(
     id: 'hue',
-    name: 'Maprisma Hue Lights',
+    name: 'Maprisma Lights',
     repo: 'maprisma-hue-lights',
     suffix: 'HueLights',
     binary: 'maprisma-hue-lights',
@@ -620,6 +624,26 @@ final List<AppEntry> builtinCatalog = [
     ],
     // The recorder runs inside the tray (KDE, Hyprland) or the applet (COSMIC), or on its own.
     moreProcesses: const [ProcessMatch(MatchKind.exe, '{bin}/maprisma-notifier-recorder', note: 'the recorder, when it runs on its own')],
+  ),
+
+  // Local Wayland clipboard manager with image previews, colour swatches and pinning.
+  _rustApp(
+    id: 'clipboard',
+    name: 'Maprisma Clipboard',
+    repo: 'maprisma-clipboard',
+    suffix: 'Clipboard',
+    binary: 'maprisma-clipboard',
+    github: 'maprisma/clipboard',
+    appIcon: 'maprisma-clipboard',
+    scripts: const [],
+    morePaths: const [
+      InstalledPath('{icons}/clipboard-paused-symbolic.svg', PathKind.file),
+      InstalledPath('{icons}/maprisma-clipboard.svg', PathKind.file),
+    ],
+    data: const [
+      DataPath('{config}/maprisma-clipboard'),
+      DataPath('{data}/maprisma-clipboard'),
+    ],
   ),
 
   // The voice service for every Maprisma app (speech to text on the session bus) and the
