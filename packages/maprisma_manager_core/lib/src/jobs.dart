@@ -1713,11 +1713,13 @@ final class JobEngine {
       final autostart = paths.expand(app.bar.kdeAutostart!);
       final shown = File(autostart).existsSync() && !desktopHidden(autostart);
       final trays = [for (final pr in procs) if (pr.exe != null && matches(pr, exe)) pr];
-      final stop = shown ? trays.where((pr) => isOld(pr, exe)).toList() : trays;
+      // A tray left from another desktop session (started there by an install, it outlived the
+      // logout) has that desktop's environment: its windows open in the wrong mode. Replaced too.
+      final stop = shown ? trays.where((pr) => isOld(pr, exe) || fromOtherSession(pr.pid)).toList() : trays;
       if (stop.isNotEmpty) await stopProcesses(stop, signaller: signaller, procRoot: paths.proc, uid: ctx.uid, grace: stopGrace);
       final left = trays.where((t) => !stop.contains(t)).toList();
       if (shown && left.isEmpty) {
-        final ok = await startDetached(paths.expand(app.bar.kdeTrayExe!), app.bar.kdeTrayArgs);
+        final ok = await startTray(paths.expand(app.bar.kdeTrayExe!), app.bar.kdeTrayArgs);
         out['trayStarted'] = ok;
         note(ok ? tr('tray started') : tr('the tray could not be started'));
       } else if (!shown) {
@@ -1792,7 +1794,54 @@ final class JobEngine {
       _runs.values.any((r) => r.job['app'] == app && r.job['finished'] != true) ||
       loadJobs(paths).any((j) => canonicalAppId('${j['app']}') == canonicalAppId(app) && j['finished'] != true);
 
-  /// Starts a program in its own session, detached from this one (KDE trays).
+  /// Starts a bar tray for this desktop session: in a systemd user scope that is part of
+  /// graphical-session.target, so it ends with the session (KDE and Hyprland stop the target at
+  /// logout). A tray started with [startDetached] alone outlives the logout and keeps serving the
+  /// bar icon in the next desktop with the old desktop's environment. Without systemd-run or an
+  /// active graphical-session.target: [startDetached].
+  Future<bool> startTray(String exe, [List<String> args = const []]) async {
+    if (!isExecutableFileOrLink(exe)) return false;
+    final run = ctx.runner.which('systemd-run');
+    if (run == null) return startDetached(exe, args);
+    final active = await ctx.runner.run(['systemctl', '--user', 'is-active', '--quiet', 'graphical-session.target'],
+        timeout: const Duration(seconds: 5));
+    if (active.code != 0) return startDetached(exe, args);
+    final env = scriptEnv(const Component(id: 'tray', name: 'tray', repo: '', install: [], paths: []));
+    try {
+      await Process.start(
+          ctx.runner.which('setsid') ?? '/usr/bin/setsid',
+          [
+            run, '--user', '--scope', '--collect', '--quiet', '--description=${p.basename(exe)}',
+            '-p', 'PartOf=graphical-session.target', '-p', 'After=graphical-session.target',
+            exe, ...args,
+          ],
+          mode: ProcessStartMode.detached, environment: env, includeParentEnvironment: false, workingDirectory: paths.home);
+      return true;
+    } on ProcessException {
+      return startDetached(exe, args);
+    }
+  }
+
+  /// [pid] runs with another desktop session's environment than this one (XDG_CURRENT_DESKTOP or
+  /// Hyprland's instance differ); false when its environment can't be read.
+  bool fromOtherSession(int pid) {
+    final String raw;
+    try {
+      raw = File(p.join(paths.proc, '$pid', 'environ')).readAsStringSync();
+    } on FileSystemException {
+      return false;
+    }
+    final theirs = <String, String>{
+      for (final kv in raw.split('\u0000'))
+        if (kv.indexOf('=') > 0) kv.substring(0, kv.indexOf('=')): kv.substring(kv.indexOf('=') + 1),
+    };
+    for (final key in const ['XDG_CURRENT_DESKTOP', 'HYPRLAND_INSTANCE_SIGNATURE']) {
+      if ((theirs[key] ?? '') != (ctx.environment[key] ?? '')) return true;
+    }
+    return false;
+  }
+
+  /// Starts a program in its own session, detached from this one.
   Future<bool> startDetached(String exe, [List<String> args = const []]) async {
     if (!isExecutableFileOrLink(exe)) return false;
     final env = scriptEnv(const Component(id: 'tray', name: 'tray', repo: '', install: [], paths: []));

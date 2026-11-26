@@ -516,7 +516,7 @@ final class IconService {
         out['bar'] = {'note': trays.isEmpty ? tr('the tray doesn\'t run') : tr('the tray is out of the bar')};
       } else {
         await stopProcesses(trays, signaller: jobs.signaller, procRoot: paths.proc, uid: ctx.uid, grace: jobs.stopGrace);
-        out['bar'] = {'trayRestarted': await jobs.startDetached(exe, app.bar.kdeTrayArgs)};
+        out['bar'] = {'trayRestarted': await jobs.startTray(exe, app.bar.kdeTrayArgs)};
       }
     } else {
       out['bar'] = {'note': tr('no bar icon on this desktop')};

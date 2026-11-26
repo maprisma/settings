@@ -36,7 +36,7 @@ import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.8.1';
+const coreVersion = '0.8.2';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -402,7 +402,7 @@ final class CoreService {
 
   Future<Map<String, dynamic>> _bar(Future<Map<String, dynamic>> Function(Bar b) f) => f(Bar(ctx)
     ..follow = followPanel
-    ..startTray = jobs.startDetached
+    ..startTray = jobs.startTray
     ..stopTrays = (trays) => stopProcesses(trays, signaller: jobs.signaller, procRoot: ctx.paths.proc, uid: ctx.uid, grace: jobs.stopGrace));
 
   /// A `desktop` param shows the status as another desktop would see it.
