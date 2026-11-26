@@ -3,12 +3,15 @@
 // Cancel, Remove, Use, Try it with partial and final text, and the note when Maprisma
 // Dictation is missing; the wake phrase card (its settings, the live line, Try the phrase).
 // `--page voice` opens it.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/home.dart';
 import 'package:maprisma_manager/voice_page.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
+import 'package:maprisma_ui/settings.dart' show SettingsToggle;
 
 import 'page_shots.dart';
 
@@ -44,7 +47,13 @@ Map<String, dynamic> _models() => {
   ],
 };
 
-Map<String, dynamic> _get({bool installed = true, bool ready = true, Map<String, dynamic>? status, Map<String, dynamic> settings = const {}}) => installed
+Map<String, dynamic> _get({
+  bool installed = true,
+  bool ready = true,
+  Map<String, dynamic>? status,
+  Map<String, dynamic> settings = const {},
+  Map<String, dynamic>? noiseCancel,
+}) => installed
     ? {
         'installed': true,
         'binary': '/home/u/.local/bin/maprisma-voice',
@@ -60,9 +69,10 @@ Map<String, dynamic> _get({bool installed = true, bool ready = true, Map<String,
             {'name': 'alsa_input.pci-analog', 'description': 'Built-in Audio'},
           ],
         },
+        'noise_cancel': noiseCancel ?? const {'available': false, 'enabled': false, 'active': false},
         'tasks': {'download': null, 'dictate': null},
       }
-    : {'installed': false, 'binary': null, 'install_url': 'https://github.com/maprisma/dictation', 'microphones': {'default': null, 'sources': []}, 'tasks': {'download': null, 'dictate': null}};
+    : {'installed': false, 'binary': null, 'install_url': 'https://github.com/maprisma/dictation', 'microphones': {'default': null, 'sources': []}, 'noise_cancel': const {'available': false, 'enabled': false, 'active': false}, 'tasks': {'download': null, 'dictate': null}};
 
 /// A fake core: voice.get answers [answer]; download and try move on with every voice.tasks.
 class _Fake {
@@ -75,6 +85,10 @@ class _Fake {
   /// What voice.wake_test ends with, and what voice.status answers.
   Map<String, dynamic> wakeResult = {'heard': 'Hey Linux, open Firefox.', 'matched': true, 'score': 0.93, 'needed': 0.75, 'rest': 'open Firefox', 'phrase': 'Hey Linux', 'model': 'ggml-base.bin', 'speech': true};
   Map<String, dynamic>? liveStatus;
+
+  /// Optional blocker on voice.tasks to test non-overlapping poll behavior (M1).
+  Completer<void>? holdTasks;
+  int activeTaskCalls = 0, maxConcurrentTaskCalls = 0;
 
   Future<Map<String, dynamic>> call(String method, [Map<String, dynamic> params = const {}]) async {
     calls.add((method, params));
@@ -96,7 +110,7 @@ class _Fake {
         download = {'kind': 'download', 'state': 'running', 'model': params['model'], 'progress': null};
         return {'task': download};
       case 'voice.try':
-        dictate = {'kind': 'dictate', 'state': 'running', 'seconds': params['seconds'], 'partial': '', 'text': ''};
+        dictate = {'kind': 'dictate', 'state': 'running', 'seconds': params['seconds'], 'partial': '', 'text': '', 'level': null, 'peak': null};
         return {'task': dictate};
       case 'voice.cancel':
         if (params['kind'] == 'download') download = {...?download, 'state': 'cancelled'};
@@ -104,13 +118,34 @@ class _Fake {
         if (params['kind'] == 'wake') wake = {...?wake, 'state': 'cancelled'};
         return {};
       case 'voice.tasks':
-        polls++;
-        if (download?['state'] == 'running') download = {...download!, 'progress': 42.0};
-        if (dictate?['state'] == 'running') {
-          dictate = polls < 3 ? {...dictate!, 'partial': 'hallo'} : {...dictate!, 'state': 'succeeded', 'partial': 'hallo welt', 'text': 'Hallo Welt.'};
+        activeTaskCalls++;
+        if (activeTaskCalls > maxConcurrentTaskCalls) maxConcurrentTaskCalls = activeTaskCalls;
+        try {
+          if (holdTasks != null) await holdTasks!.future;
+          polls++;
+          if (download?['state'] == 'running') download = {...download!, 'progress': 42.0};
+          if (dictate?['state'] == 'running') {
+            if (polls == 1) {
+              // ~ -46 dB -> Quiet / noise floor
+              dictate = {...dictate!, 'partial': '', 'level': 0.005, 'peak': 0.005};
+            } else if (polls == 2) {
+              // ~ -18 dB -> Voice detected (70% bar)
+              dictate = {...dictate!, 'partial': 'hallo', 'level': 0.1259, 'peak': 0.1259};
+            } else if (polls == 3) {
+              // ~ -12 dB -> Loud (80% bar, amber)
+              dictate = {...dictate!, 'partial': 'hallo', 'level': 0.2512, 'peak': 0.2512};
+            } else if (polls == 4) {
+              // ~ -4 dB -> Too loud (93% bar, red)
+              dictate = {...dictate!, 'partial': 'hallo', 'level': 0.6310, 'peak': 0.6310};
+            } else {
+              dictate = {...dictate!, 'state': 'succeeded', 'partial': 'hallo welt', 'text': 'Hallo Welt.', 'level': 0.05, 'peak': 0.6310};
+            }
+          }
+          if (wake?['state'] == 'running' && ++wakePolls >= 3) wake = {...wake!, 'state': 'succeeded', 'result': wakeResult};
+          return {'download': download, 'dictate': dictate, 'wake': wake};
+        } finally {
+          activeTaskCalls--;
         }
-        if (wake?['state'] == 'running' && ++wakePolls >= 3) wake = {...wake!, 'state': 'succeeded', 'result': wakeResult};
-        return {'download': download, 'dictate': dictate, 'wake': wake};
       default:
         return {};
     }
@@ -261,22 +296,54 @@ void main() {
     expect(fake.of('voice.remove'), [{'model': 'base'}]);
   });
 
-  testWidgets('Try it: partial text, then the final text', (tester) async {
+  testWidgets('Try it: live dB level meter (U1/U2, hidden until first level, non-overlapping 150 ms polls M1), partial text, final text and peak', (tester) async {
     final fake = await open(tester, _get());
     await tapKey(tester, 'voice-try');
     await tester.pump();
     expect(fake.of('voice.try'), [{'seconds': 5}]);
     expect(find.text('Listening for 5 s… speak now'), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-try-stop')), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 450));
+    // U2: before any level event arrives (null), no false level bar is shown
+    expect(find.byKey(const ValueKey('voice-try-level')), findsNothing);
+
+    // M1: hold the first voice.tasks poll across several 150 ms ticks -> never overlaps!
+    final gate = fake.holdTasks = Completer<void>();
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(fake.maxConcurrentTaskCalls, 1);
+    fake.holdTasks = null;
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+
+    // Poll 1 (-46 dB): Quiet / noise floor
+    expect(find.byKey(const ValueKey('voice-try-level')), findsOneWidget);
+    expect(find.textContaining('Quiet / noise floor'), findsOneWidget);
+    // Poll 2 (-18 dB -> 70% bar): Voice detected + partial text
+    await tester.pump(const Duration(milliseconds: 160));
     await tester.pump();
     expect(find.text('hallo'), findsOneWidget);
-    for (var i = 0; i < 4; i++) {
-      await tester.pump(const Duration(milliseconds: 450));
-    }
+    expect(find.textContaining('Voice detected · -18 dB'), findsOneWidget);
+    final greenBar = tester.widget<LinearProgressIndicator>(
+      find.descendant(of: find.byKey(const ValueKey('voice-try-level')), matching: find.byType(LinearProgressIndicator)),
+    );
+    expect(greenBar.value, closeTo(0.70, 0.02));
+    // Poll 3 (-12 dB -> 80% bar): Loud (amber)
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump();
+    expect(find.textContaining('Loud · -12 dB'), findsOneWidget);
+    // Poll 4 (-4 dB -> 93% bar): Too loud (red)
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump();
+    expect(find.textContaining('Too loud — lower mic gain · -4 dB'), findsOneWidget);
+    // Poll 5: Final text + peak microphone level shown
+    await tester.pump(const Duration(milliseconds: 160));
     await tester.pumpAndSettle();
     expect(find.text('Hallo Welt.'), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-try')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-try-level')), findsOneWidget);
+    expect(find.text('Peak microphone level'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -454,5 +521,93 @@ void main() {
     await tapKey(tester, 'voice-github');
     await tester.pumpAndSettle();
     expect(fake.of('links.open'), [{'url': 'https://github.com/maprisma/dictation'}]);
+  });
+
+  testWidgets('Audio & noise filtering: noise filter, VAD sensitivity, engine-aware hallucination filter', (tester) async {
+    final fake = await open(
+      tester,
+      _get(settings: {'noise_filter': 'standard', 'vad_sensitivity': 'normal', 'hallucination_filter': true}),
+    );
+    expect(find.text('Audio & noise filtering'), findsOneWidget);
+    expect(find.textContaining('Shared with Maprisma Dictation'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-noise-filter')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-vad-sensitivity')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-hallucination-filter')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-noise-cancel')), findsNothing);
+    // Engine-aware description for Local Whisper
+    expect(find.textContaining('Local Whisper sometimes hallucinates'), findsOneWidget);
+
+    await pick(tester, 'voice-noise-filter', 'Strong');
+    await pick(tester, 'voice-vad-sensitivity', 'Strict');
+    await tapKey(tester, 'voice-hallucination-filter');
+    await tester.pumpAndSettle();
+    expect(fake.of('voice.set'), [
+      {'key': 'noise_filter', 'value': 'strong'},
+      {'key': 'vad_sensitivity', 'value': 'strict'},
+      {'key': 'hallucination_filter', 'value': false},
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('hallucinationDescription adapts to Local Whisper, Online Whisper, settings fallback, and external engines (M4)', () {
+    expect(VoicePageState.hallucinationDescription({'engine': 'whisper'}), contains('Local Whisper'));
+    expect(VoicePageState.hallucinationDescription({'engine': 'online'}), contains('Online Whisper'));
+    expect(VoicePageState.hallucinationDescription({'engine': 'voxtype'}), contains('Voxtype'));
+    expect(VoicePageState.hallucinationDescription({'engine': 'omarchy'}), contains('Omarchy'));
+    expect(VoicePageState.hallucinationDescription(const {}, {'engine': 'online'}), contains('Online Whisper'));
+    expect(VoicePageState.hallucinationDescription(const {}, {'engine': 'voxtype'}), contains('Voxtype'));
+    expect(VoicePageState.hallucinationDescription(const {}, {'engine': 'auto'}), contains('Local Whisper or Online Whisper'));
+    expect(VoicePageState.hallucinationDescription(const {}), contains('Local Whisper or Online Whisper'));
+  });
+
+  testWidgets('hallucination toggle is disabled when an external engine is active (M4)', (tester) async {
+    await open(
+      tester,
+      _get(status: {..._status(engines: ['whisper', 'voxtype']), 'engine': 'voxtype', 'typed_by_engine': true}),
+    );
+    final toggle = tester.widget<SettingsToggle>(find.byKey(const ValueKey('voice-hallucination-filter')));
+    expect(toggle.onChanged, isNull);
+    expect(find.textContaining('Voxtype handles its own transcription'), findsOneWidget);
+  });
+
+  testWidgets('PipeWire noise-cancelling microphone toggle: descriptions (U3/U4), waiting state, Active chip', (tester) async {
+    final fake = await open(
+      tester,
+      _get(noiseCancel: const {'available': true, 'enabled': false, 'active': false}),
+    );
+    expect(find.byKey(const ValueKey('voice-noise-cancel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsNothing);
+    expect(find.textContaining('Switching restarts audio briefly'), findsOneWidget);
+
+    // Enabled but not yet active -> shows waiting for PipeWire text (U4)
+    fake.answer = _get(noiseCancel: const {'available': true, 'enabled': true, 'active': false});
+    await tapKey(tester, 'voice-noise-cancel');
+    await tester.pumpAndSettle();
+    expect(fake.of('voice.noise_cancel'), [{'enabled': true, 'apply': true}]);
+    expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsNothing);
+    expect(find.textContaining('Enabled — waiting for PipeWire (takes effect after audio restarts)'), findsOneWidget);
+
+    // Reload with active: true -> Active chip appears
+    fake.answer = _get(noiseCancel: const {'available': true, 'enabled': true, 'active': true});
+    final reload = find.byTooltip('Reload');
+    await tester.ensureVisible(reload);
+    await tester.pumpAndSettle();
+    await tester.tap(reload);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('voice-noise-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
+
+    // Toggling off calls voice.noise_cancel with enabled: false, apply: true
+    fake.answer = _get(noiseCancel: const {'available': true, 'enabled': false, 'active': false});
+    await tapKey(tester, 'voice-noise-cancel');
+    await tester.pumpAndSettle();
+    expect(fake.of('voice.noise_cancel'), [
+      {'enabled': true, 'apply': true},
+      {'enabled': false, 'apply': true},
+    ]);
+    expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

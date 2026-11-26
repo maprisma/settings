@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:maprisma_core_kit/files.dart' show StagingFile;
 import 'package:path/path.dart' as p;
 
 import 'context.dart';
@@ -31,11 +32,49 @@ final class VoiceService {
   /// The settings the page sets; the service checks the values.
   static const keys = {
     'enabled', 'engine', 'model', 'language', 'microphone', 'unload_minutes', 'preload', //
+    'noise_filter', 'vad_sensitivity', 'hallucination_filter', //
     'wake_enabled', 'wake_phrase', 'wake_language', 'wake_model', 'wake_sensitivity',
   };
 
+  /// How strongly background noise is filtered before transcription.
+  static const noiseFilters = ['off', 'standard', 'strong'];
+
+  /// Voice-activity detection threshold for dictation.
+  static const vadSensitivities = ['strict', 'normal', 'sensitive'];
+
   /// How far what was heard may be from the wake phrase.
   static const sensitivities = ['strict', 'normal', 'loose'];
+
+  /// PipeWire WebRTC echo-cancel virtual microphone source name and config file name.
+  static const noiseCancelSource = 'maprisma.noise_cancel_source';
+  static const noiseCancelConfigName = '50-maprisma-noise-cancel.conf';
+  static const _pipewireLibDirs = [
+    '/usr/lib',
+    '/usr/lib64',
+    '/usr/lib/x86_64-linux-gnu',
+    '/usr/lib/aarch64-linux-gnu',
+  ];
+
+  static const _noiseCancelConfig = '''context.modules = [
+    {   name = libpipewire-module-echo-cancel
+        flags = [ nofail ]
+        args = {
+            library.name  = aec/libspa-aec-webrtc
+            node.latency  = 1024/48000
+            aec.args = {
+                webrtc.gain_control = true
+                webrtc.noise_suppression = true
+                webrtc.high_pass_filter = true
+                webrtc.extended_filter = true
+            }
+            source.props = {
+                node.name = "maprisma.noise_cancel_source"
+                node.description = "Maprisma Noise-Cancelling Mic"
+            }
+        }
+    }
+]
+''';
 
   static final _alnum = RegExp(r'[\p{L}\p{N}]', unicode: true);
   static final _phraseChars = RegExp(r"^[\p{L}\p{N} ,.!?'-]*$", unicode: true);
@@ -55,9 +94,12 @@ final class VoiceService {
 
   static final _name = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$');
 
-  /// Test hooks: the time limits of a download and of the answers.
+  /// Test hooks: time limits and polling intervals.
   Duration downloadTimeout = const Duration(hours: 2);
   Duration quickTimeout = const Duration(seconds: 10);
+  Duration noiseCancelPollInterval = const Duration(milliseconds: 250);
+  Duration noiseCancelPollTimeout = const Duration(seconds: 4);
+  Duration cancelGrace = const Duration(milliseconds: 300);
 
   final Map<String, VoiceTask> _tasks = {};
 
@@ -70,10 +112,10 @@ final class VoiceService {
 
   String _need() => binary() ?? (throw RouteError('not_installed', tr('maprisma-voice is not installed')));
 
-  Future<Process?> _start(String exe, List<String> args) async {
+  Future<Process?> _start(String exe, List<String> args, {bool keepStdinOpen = false}) async {
     try {
       final process = await Process.start(exe, args, environment: ctx.environment, includeParentEnvironment: false);
-      process.stdin.close().ignore();
+      if (!keepStdinOpen) process.stdin.close().ignore();
       return process;
     } on ProcessException {
       return null;
@@ -126,13 +168,47 @@ final class VoiceService {
 
   // --- reading -------------------------------------------------------------------------------
 
+  /// Path to the user PipeWire drop-in for the WebRTC noise-cancelling microphone.
+  String get noiseCancelConfigPath => p.join(ctx.paths.config, 'pipewire', 'pipewire.conf.d', noiseCancelConfigName);
+
+  bool _hasPipewirePlugin(String relativePath) =>
+      _pipewireLibDirs.any((dir) => File(ctx.paths.sys('$dir/$relativePath')).existsSync());
+
+  /// Whether BOTH PipeWire's echo-cancel module and WebRTC AEC SPA plugin are installed.
+  bool get noiseCancelAvailable =>
+      _hasPipewirePlugin('pipewire-0.3/libpipewire-module-echo-cancel.so') &&
+      _hasPipewirePlugin('spa-0.2/aec/libspa-aec-webrtc.so');
+
+  /// Whether the PipeWire drop-in exists as a regular file inside real directories (never following symlinks).
+  bool get noiseCancelEnabled {
+    final pw = p.join(ctx.paths.config, 'pipewire');
+    final dir = p.join(pw, 'pipewire.conf.d');
+    if (FileSystemEntity.typeSync(pw, followLinks: false) != FileSystemEntityType.directory) return false;
+    if (FileSystemEntity.typeSync(dir, followLinks: false) != FileSystemEntityType.directory) return false;
+    return FileSystemEntity.typeSync(noiseCancelConfigPath, followLinks: false) == FileSystemEntityType.file;
+  }
+
+  Map<String, dynamic> _noiseCancelStatus(Map<String, dynamic> mics) {
+    final sources = (mics['sources'] as List?) ?? const [];
+    final active = sources.any((s) => s is Map && s['name'] == noiseCancelSource);
+    return {'available': noiseCancelAvailable, 'enabled': noiseCancelEnabled, 'active': active};
+  }
+
   /// `voice.get`: whether it is installed, the service's status (or why there is none), the
-  /// models, the settings file's values, the microphones and the running tasks.
+  /// models, the settings file's values, the microphones, PipeWire noise-cancel status, and the running tasks.
   Future<Map<String, dynamic>> get() async {
     final exe = binary();
     final microphones = sound.microphones();
     if (exe == null) {
-      return {'installed': false, 'binary': null, 'install_url': repoUrl, 'microphones': await microphones, 'tasks': tasks()};
+      final mics = await microphones;
+      return {
+        'installed': false,
+        'binary': null,
+        'install_url': repoUrl,
+        'microphones': mics,
+        'noise_cancel': _noiseCancelStatus(mics),
+        'tasks': tasks(),
+      };
     }
     final status = _run(exe, ['status', '--json']);
     final models = _json(exe, ['models', '--json']);
@@ -151,7 +227,7 @@ final class VoiceService {
     } else {
       why = _firstLine(err, code);
     }
-    final m = await models, s = await settings;
+    final m = await models, s = await settings, mics = await microphones;
     return {
       'installed': true,
       'binary': exe,
@@ -160,7 +236,8 @@ final class VoiceService {
       'status_error': why,
       'models': m is Map ? m : null,
       'settings': s is Map ? s : const <String, dynamic>{},
-      'microphones': await microphones,
+      'microphones': mics,
+      'noise_cancel': _noiseCancelStatus(mics),
       'tasks': tasks(),
     };
   }
@@ -185,8 +262,10 @@ final class VoiceService {
   // --- settings ------------------------------------------------------------------------------
 
   static bool _valueOk(String key, Object? value) => switch (key) {
-    'enabled' || 'preload' || 'wake_enabled' => value is bool,
+    'enabled' || 'preload' || 'wake_enabled' || 'hallucination_filter' => value is bool,
     'unload_minutes' => value is int && value >= 0 && value <= 1440,
+    'noise_filter' => value is String && noiseFilters.contains(value),
+    'vad_sensitivity' => value is String && vadSensitivities.contains(value),
     'wake_phrase' => value is String && validWakePhrase(value),
     'wake_language' => value is String && _language.hasMatch(value),
     'wake_model' => value is String && (value.isEmpty || (_name.hasMatch(value) && !value.contains('..'))),
@@ -220,6 +299,143 @@ final class VoiceService {
     final key = _key(params);
     await _write(['unset', key]);
     return {'key': key};
+  }
+
+  // --- PipeWire WebRTC noise-cancelling microphone -------------------------------------------
+
+  void _ensureSafeDir(String dir) {
+    final type = FileSystemEntity.typeSync(dir, followLinks: false);
+    if (type == FileSystemEntityType.directory) return;
+    if (type == FileSystemEntityType.notFound) {
+      Directory(dir).createSync();
+      return;
+    }
+    throw RouteError('failed', tr('PipeWire config path is not a directory'));
+  }
+
+  /// `voice.noise_cancel` {enabled, apply?}: writes or removes the PipeWire WebRTC echo-cancel
+  /// virtual microphone drop-in (safely, without symlink traversal inside PipeWire's config
+  /// subdirectories; `$XDG_CONFIG_HOME` itself may be a symlink), resets the selected mic to
+  /// `default` when disabling if it pointed at the removed virtual source, and optionally
+  /// restarts PipeWire + WirePlumber and waits for the virtual mic to appear or disappear.
+  Future<Map<String, dynamic>> setNoiseCancel(Map<String, dynamic> params) async {
+    final enabled = params['enabled'];
+    if (enabled is! bool) throw RouteError('bad_params', 'enabled');
+    final apply = params['apply'] ?? false;
+    if (apply is! bool) throw RouteError('bad_params', 'apply');
+
+    final configRoot = ctx.paths.config;
+    final pwDir = p.join(configRoot, 'pipewire');
+    final confDir = p.join(pwDir, 'pipewire.conf.d');
+    final target = p.join(confDir, noiseCancelConfigName);
+    var changed = false;
+
+    if (enabled) {
+      if (!noiseCancelAvailable) {
+        throw RouteError('unavailable', tr('PipeWire echo-cancel module is not installed'));
+      }
+      if (!Directory(configRoot).existsSync()) {
+        Directory(configRoot).createSync(recursive: true);
+      }
+      _ensureSafeDir(pwDir);
+      _ensureSafeDir(confDir);
+      final targetType = FileSystemEntity.typeSync(target, followLinks: false);
+      if (targetType != FileSystemEntityType.notFound && targetType != FileSystemEntityType.file) {
+        throw RouteError('failed', tr('PipeWire config file is not a regular file'));
+      }
+      final alreadySame = targetType == FileSystemEntityType.file && _readIfRegular(target) == _noiseCancelConfig;
+      if (!alreadySame) {
+        final temp = p.join(confDir, '.$noiseCancelConfigName.$pid.${DateTime.now().microsecondsSinceEpoch}.tmp');
+        StagingFile? staged;
+        try {
+          staged = StagingFile(temp, exclusive: true, mode: 0x1a4);
+          staged.add(utf8.encode(_noiseCancelConfig));
+          staged.publish(target);
+          changed = true;
+        } on Object catch (e) {
+          throw RouteError('failed', '$e');
+        } finally {
+          staged?.close();
+        }
+      }
+    } else {
+      final pwType = FileSystemEntity.typeSync(pwDir, followLinks: false);
+      if (pwType != FileSystemEntityType.notFound) {
+        if (pwType != FileSystemEntityType.directory) {
+          throw RouteError('failed', tr('PipeWire config path is not a directory'));
+        }
+        final confType = FileSystemEntity.typeSync(confDir, followLinks: false);
+        if (confType != FileSystemEntityType.notFound) {
+          if (confType != FileSystemEntityType.directory) {
+            throw RouteError('failed', tr('PipeWire config path is not a directory'));
+          }
+          final targetType = FileSystemEntity.typeSync(target, followLinks: false);
+          if (targetType == FileSystemEntityType.file) {
+            try {
+              File(target).deleteSync();
+              changed = true;
+            } on FileSystemException catch (e) {
+              throw RouteError('failed', e.message);
+            }
+          } else if (targetType != FileSystemEntityType.notFound) {
+            throw RouteError('failed', tr('PipeWire config file is not a regular file'));
+          }
+        }
+      }
+      // Don't leave dictation pointing at the removed virtual source.
+      final exe = binary();
+      if (exe != null) {
+        final current = await _json(exe, ['get']);
+        if (current is Map && current['microphone'] == noiseCancelSource) {
+          await _run(exe, ['set', 'microphone', jsonEncode('default')]);
+        }
+      }
+    }
+
+    var applied = false;
+    String? message;
+    if (apply && changed) {
+      final r = await ctx.runner.run(
+        ['systemctl', '--user', 'restart', 'pipewire', 'wireplumber'],
+        timeout: const Duration(seconds: 15),
+      );
+      if (!r.ok) {
+        message = trf(
+          'Saved PipeWire configuration, but restarting audio failed ({0}). It will take effect after PipeWire restarts.',
+          [_firstLine(r.stderr, r.code)],
+        );
+      } else {
+        applied = true;
+      }
+    }
+
+    var mics = await sound.microphones();
+    var status = _noiseCancelStatus(mics);
+    if (applied && status['active'] != enabled) {
+      final deadline = DateTime.now().add(noiseCancelPollTimeout);
+      while (DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(noiseCancelPollInterval);
+        mics = await sound.microphones();
+        status = _noiseCancelStatus(mics);
+        if (status['active'] == enabled) break;
+      }
+    }
+
+    return {
+      'noise_cancel': status,
+      'enabled': status['enabled'],
+      'active': status['active'],
+      'applied': applied,
+      'message': ?message,
+    };
+  }
+
+  static String? _readIfRegular(String path) {
+    try {
+      return File(path).readAsStringSync();
+    } on FileSystemException {
+      return null;
+    }
   }
 
   // --- models --------------------------------------------------------------------------------
@@ -286,10 +502,11 @@ final class VoiceService {
 
   // --- try it --------------------------------------------------------------------------------
 
-  /// `voice.try` {seconds?}: `dictate --seconds N` (1–30, default 5) in the background; the
-  /// partial text comes on stderr as "… text", the final text on stdout. Only with an engine
-  /// that hands the text back: one that types it itself (status `typed_by_engine`: Voxtype,
-  /// Superwhisper, Omarchy) would type into whatever window has the focus.
+  /// `voice.try` {seconds?}: `dictate --events --seconds N` (1–30, default 5) in the background;
+  /// JSON events on stdout carry live microphone levels, partial text and final text (falling
+  /// back cleanly to plain-text stdout / "… text" stderr for older or fake binaries). Only with
+  /// an engine that hands the text back: one that types it itself (status `typed_by_engine`:
+  /// Voxtype, Superwhisper, Omarchy) would type into whatever window has the focus.
   Future<Map<String, dynamic>> tryIt(Map<String, dynamic> params) async {
     final seconds = params['seconds'] ?? 5;
     if (seconds is! int || seconds < 1 || seconds > 30) throw RouteError('bad_params', 'seconds (1–30)');
@@ -300,7 +517,7 @@ final class VoiceService {
     if (status['typed_by_engine'] != false) throw RouteError('unavailable', tr('This engine types the text itself, into the window that has the focus, so it can\'t be tried here.'));
     if (_running('dictate') || _running('wake')) throw RouteError('busy', tr('a try is already running'));
     final task = _tasks['dictate'] = VoiceTask('dictate', ctx.clock(), seconds: seconds);
-    unawaited(_follow(task, exe, ['dictate', '--seconds', '$seconds'], Duration(seconds: seconds + 90)));
+    unawaited(_follow(task, exe, ['dictate', '--events', '--seconds', '$seconds'], Duration(seconds: seconds + 90)));
     return {'task': task.toJson()};
   }
 
@@ -328,21 +545,43 @@ final class VoiceService {
     final task = _tasks[kind];
     if (task == null || task.state != 'running') throw RouteError('finished', tr('nothing is running'));
     task.cancelled = true;
-    task.process?.kill(ProcessSignal.sigterm);
+    final proc = task.process;
+    if (proc != null) {
+      if (kind == 'dictate') {
+        task.closeStdin(cancel: true);
+        unawaited(
+          Future<void>.delayed(cancelGrace, () {
+            if (task.state == 'running' && task.process == proc) {
+              proc.kill(ProcessSignal.sigterm);
+            }
+          }),
+        );
+      } else {
+        proc.kill(ProcessSignal.sigterm);
+      }
+    }
     return {'task': task.toJson()};
   }
 
   static final _percent = RegExp(r'(\d{1,3}(?:[.,]\d+)?)\s*%');
+  static const _eventNames = {'started', 'state', 'level', 'partial', 'final', 'error', 'closed'};
 
   Future<void> _follow(VoiceTask task, String exe, List<String> args, Duration timeout) async {
-    final process = await _start(exe, args);
+    final keepStdin = task.kind == 'dictate';
+    final process = await _start(exe, args, keepStdinOpen: keepStdin);
     if (process == null) {
       task.finish('failed', ctx.clock(), message: trf('could not start {0}', [exe]));
       return;
     }
     task.process = process;
-    if (task.cancelled) process.kill(ProcessSignal.sigterm);
+    if (task.cancelled) {
+      if (keepStdin) task.closeStdin(cancel: true);
+      process.kill(ProcessSignal.sigterm);
+    }
     final out = BytesBuilder(copy: false);
+    var outTail = '';
+    var sawEvents = false, sawFinal = false;
+    String? eventError, closedReason;
     var tail = '';
     final lines = <String>[];
     void line(String l) {
@@ -362,9 +601,65 @@ final class VoiceService {
       if (lines.length > 20) lines.removeAt(0);
     }
 
-    final outDone = process.stdout.listen((c) {
-      if (out.length + c.length <= maxOutput) out.add(c);
-    }).asFuture<void>();
+    void handleDictateOutLine(String raw) {
+      final t = raw.trim();
+      if (t.isEmpty) return;
+      if (t.startsWith('{') && t.length <= 64 * 1024) {
+        try {
+          final parsed = jsonDecode(t);
+          if (parsed is Map && _eventNames.contains(parsed['event'])) {
+            sawEvents = true;
+            switch (parsed['event']) {
+              case 'level':
+                final r = parsed['rms'];
+                if (r is num && !r.isNaN) {
+                  final v = r.toDouble().clamp(0.0, 1.0);
+                  task.level = v;
+                  if (task.peak == null || v > task.peak!) task.peak = v;
+                }
+              case 'partial':
+                final text = parsed['text'];
+                if (text is String) task.partial = text.trim();
+              case 'final':
+                final text = parsed['text'];
+                if (text is String) {
+                  task.text = text.trim();
+                  sawFinal = true;
+                }
+              case 'error':
+                final msg = parsed['message'];
+                if (msg is String && msg.trim().isNotEmpty) eventError = msg.trim();
+              case 'closed':
+                final reason = parsed['reason'];
+                if (reason is String && reason.isNotEmpty) {
+                  closedReason = reason;
+                  if (reason == 'no_speech' && !sawFinal) task.text = '';
+                }
+            }
+            return;
+          }
+        } on FormatException {
+          // plain-text fallback below
+        }
+      }
+      final bytes = utf8.encode('$raw\n');
+      if (out.length + bytes.length <= maxOutput) out.add(bytes);
+    }
+
+    final Future<void> outDone;
+    if (task.kind == 'dictate') {
+      outDone = process.stdout.transform(const Utf8Decoder(allowMalformed: true)).listen((chunk) {
+        outTail += chunk;
+        final parts = outTail.split('\n');
+        outTail = parts.removeLast();
+        if (outTail.length > 64 * 1024) outTail = outTail.substring(outTail.length - 64 * 1024);
+        parts.forEach(handleDictateOutLine);
+      }).asFuture<void>();
+    } else {
+      outDone = process.stdout.listen((c) {
+        if (out.length + c.length <= maxOutput) out.add(c);
+      }).asFuture<void>();
+    }
     final errDone = process.stderr.transform(const Utf8Decoder(allowMalformed: true)).listen((chunk) {
       tail += chunk;
       final parts = tail.split(RegExp(r'[\r\n]'));
@@ -383,8 +678,11 @@ final class VoiceService {
     } on TimeoutException {
       process.kill(ProcessSignal.sigkill);
       code = null;
+    } finally {
+      if (keepStdin) task.closeStdin();
     }
     await Future.wait([outDone, errDone]).timeout(const Duration(seconds: 1), onTimeout: () => const []);
+    if (task.kind == 'dictate' && outTail.isNotEmpty) handleDictateOutLine(outTail);
     line(tail);
     final stdout = utf8.decode(out.takeBytes(), allowMalformed: true).trim();
     final said = lines.lastOrNull;
@@ -416,8 +714,17 @@ final class VoiceService {
       } else {
         task.finish('failed', ctx.clock(), message: said ?? trf('exit {0}', [code]));
       }
+    } else if (sawEvents) {
+      if (closedReason == 'no_speech' && !sawFinal) task.text = '';
+      if (code == 0) {
+        task.finish('succeeded', ctx.clock(), message: task.text.isEmpty ? (eventError ?? said) : null);
+      } else if (closedReason == 'no_speech' && eventError == null) {
+        task.finish('succeeded', ctx.clock(), message: said);
+      } else {
+        task.finish('failed', ctx.clock(), message: eventError ?? said ?? trf('exit {0}', [code]));
+      }
     } else {
-      // dictate: 0 text (or an engine typed it: said), 3 no speech, else the reason
+      // dictate (plain-text fallback): 0 text (or an engine typed it: said), 3 no speech, else the reason
       task.text = stdout;
       if (code == 0) {
         task.finish('succeeded', ctx.clock(), message: stdout.isEmpty ? said : null);
@@ -438,6 +745,8 @@ final class VoiceTask {
   DateTime? ended;
   String state = 'running';
   double? progress;
+  double? level;
+  double? peak;
   String partial = '';
   String text = '';
   String? path, message;
@@ -449,6 +758,24 @@ final class VoiceTask {
   String? file;
   Process? process;
   bool cancelled = false;
+  bool _stdinClosed = false;
+
+  void closeStdin({bool cancel = false}) {
+    if (_stdinClosed) return;
+    _stdinClosed = true;
+    final p = process;
+    if (p == null) return;
+    try {
+      if (cancel) p.stdin.writeln('cancel');
+    } on Object {
+      // process may already have exited
+    }
+    try {
+      p.stdin.close().catchError((_) {}).ignore();
+    } on Object {
+      // already closed
+    }
+  }
 
   void finish(String to, DateTime at, {String? message}) {
     state = to;
@@ -465,7 +792,7 @@ final class VoiceTask {
     'started': started.toUtc().toIso8601String(),
     if (ended != null) 'ended': ended!.toUtc().toIso8601String(),
     if (kind == 'download') 'progress': progress,
-    if (kind == 'dictate') ...{'partial': partial, 'text': text},
+    if (kind == 'dictate') ...{'partial': partial, 'text': text, 'level': level, 'peak': peak},
     if (kind == 'wake') 'result': result,
     'path': ?path,
     'message': ?message,

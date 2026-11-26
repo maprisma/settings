@@ -73,7 +73,36 @@ if a[:2] == ['wake', 'test']:
     print(json.dumps(w))
     sys.exit(0 if w.get('matched') else (3 if not w.get('speech') else 1))
 if a[:1] == ['dictate']:
-    sys.stderr.write('Listening for ' + a[2] + ' s…\n'); sys.stderr.flush()
+    secs = a[a.index('--seconds') + 1] if '--seconds' in a else '5'
+    if os.path.exists(os.path.join(d, 'events_nospeech')):
+        print(json.dumps({'event': 'started', 'session': 's1'}), flush=True)
+        print(json.dumps({'event': 'level', 'rms': 0.004}), flush=True)
+        print(json.dumps({'event': 'closed', 'reason': 'no_speech'}), flush=True)
+        sys.exit(3)
+    if os.path.exists(os.path.join(d, 'events_error')):
+        print(json.dumps({'event': 'started', 'session': 's1'}), flush=True)
+        print(json.dumps({'event': 'error', 'code': 'mic', 'message': 'Microphone unplugged'}), flush=True)
+        print(json.dumps({'event': 'closed', 'reason': 'error'}), flush=True)
+        sys.exit(1)
+    if os.path.exists(os.path.join(d, 'events')):
+        import select
+        print(json.dumps({'event': 'started', 'session': 's1'}), flush=True)
+        print(json.dumps({'event': 'state', 'state': 'listening'}), flush=True)
+        print(json.dumps({'event': 'level', 'rms': 0.042}), flush=True)
+        print(json.dumps({'event': 'partial', 'text': 'hello'}), flush=True)
+        while os.path.exists(os.path.join(d, 'slow')) and not os.path.exists(os.path.join(d, 'go')):
+            r, _, _ = select.select([sys.stdin], [], [], 0.05)
+            if r:
+                line = sys.stdin.readline()
+                if line == '' or line.strip() == 'cancel':
+                    print(json.dumps({'event': 'closed', 'reason': 'cancelled'}), flush=True)
+                    sys.exit(1)
+        print(json.dumps({'event': 'level', 'rms': 0.085}), flush=True)
+        print(json.dumps({'event': 'level', 'rms': 0.020}), flush=True)
+        print(json.dumps({'event': 'final', 'text': 'Hello from events.', 'typed': False, 'engine': 'whisper'}), flush=True)
+        print(json.dumps({'event': 'closed', 'reason': 'finished'}), flush=True)
+        sys.exit(0)
+    sys.stderr.write('Listening for ' + secs + ' s…\n'); sys.stderr.flush()
     if os.path.exists(os.path.join(d, 'nospeech')):
         sys.stderr.write('No speech was heard.\n'); sys.exit(3)
     sys.stderr.write('… hello\n'); sys.stderr.flush()
@@ -342,7 +371,7 @@ void main() {
     expect(t['text'], 'Hello world.');
     expect(t['partial'], 'hello world');
     expect(t['seconds'], 5);
-    expect(calls().last, ['dictate', '--seconds', '5']);
+    expect(calls().last, ['dictate', '--events', '--seconds', '5']);
     await expectLater(core.call('voice.try', {'seconds': 0}), refused('bad_params'));
     await expectLater(core.call('voice.try', {'seconds': '5'}), refused('bad_params'));
   });
@@ -505,5 +534,180 @@ void main() {
     expect([for (final s in m['sources'] as List) s['name']], ['mic']);
     File(p.join(w.fakeBin, 'pactl')).deleteSync();
     expect(await SoundService(w.core().ctx).microphones(), {'default': null, 'sources': const []});
+  });
+
+  test('v0.3.0 audio filtering settings: noise_filter, vad_sensitivity, hallucination_filter', () async {
+    installFake();
+    final core = w.core();
+    for (final nf in VoiceService.noiseFilters) {
+      await core.call('voice.set', {'key': 'noise_filter', 'value': nf});
+    }
+    for (final vs in VoiceService.vadSensitivities) {
+      await core.call('voice.set', {'key': 'vad_sensitivity', 'value': vs});
+    }
+    await core.call('voice.set', {'key': 'hallucination_filter', 'value': true});
+    await core.call('voice.set', {'key': 'hallucination_filter', 'value': false});
+    await core.call('voice.unset', {'key': 'noise_filter'});
+    await expectLater(core.call('voice.set', {'key': 'noise_filter', 'value': 'ultra'}), refused('bad_params'));
+    await expectLater(core.call('voice.set', {'key': 'noise_filter', 'value': true}), refused('bad_params'));
+    await expectLater(core.call('voice.set', {'key': 'vad_sensitivity', 'value': 'loose'}), refused('bad_params'));
+    await expectLater(core.call('voice.set', {'key': 'hallucination_filter', 'value': 'yes'}), refused('bad_params'));
+    expect(calls(), [
+      ['set', 'noise_filter', '"off"'],
+      ['set', 'noise_filter', '"standard"'],
+      ['set', 'noise_filter', '"strong"'],
+      ['set', 'vad_sensitivity', '"strict"'],
+      ['set', 'vad_sensitivity', '"normal"'],
+      ['set', 'vad_sensitivity', '"sensitive"'],
+      ['set', 'hallucination_filter', 'true'],
+      ['set', 'hallucination_filter', 'false'],
+      ['unset', 'noise_filter'],
+    ]);
+  });
+
+  test('PipeWire noise-cancelling mic: both plugins required, restart polling, no-op skip, symlinked XDG_CONFIG_HOME, systemctl failure, mic reset', () async {
+    installFake();
+    answer('status.json', _status);
+    w.fake('systemctl', r'''
+echo "$*" >> "$HOME/systemctl.log"
+if [ -f "$HOME/systemctl-fail" ]; then
+  echo "Failed to connect to bus" >&2
+  exit 1
+fi
+if [ -f "$HOME/systemctl-spawn-mic" ]; then
+  /usr/bin/python3 -c '
+import json, os, time
+time.sleep(0.04)
+p = os.path.join(os.environ["HOME"], "pactl/sources.json")
+s = json.load(open(p))
+s.append({"index": 99, "name": "maprisma.noise_cancel_source", "description": "Maprisma Noise-Cancelling Mic", "monitor_source": "", "mute": False, "volume": {}})
+json.dump(s, open(p, "w"))
+' >/dev/null 2>&1 &
+fi
+''');
+    final core = w.core();
+    core.voice.noiseCancelPollInterval = const Duration(milliseconds: 20);
+    core.voice.noiseCancelPollTimeout = const Duration(milliseconds: 500);
+
+    // Module absent -> unavailable; only echo-cancel without WebRTC SPA -> still unavailable (H2)
+    expect((await core.call('voice.get'))['noise_cancel'], {'available': false, 'enabled': false, 'active': false});
+    w.writeFile(p.join(w.root, 'usr/lib/x86_64-linux-gnu/pipewire-0.3/libpipewire-module-echo-cancel.so'), '');
+    expect((await core.call('voice.get'))['noise_cancel'], {'available': false, 'enabled': false, 'active': false});
+    await expectLater(core.call('voice.noise_cancel', {'enabled': true}), refused('unavailable'));
+    await expectLater(core.call('voice.noise_cancel', {'enabled': 'yes'}), refused('bad_params'));
+    await expectLater(core.call('voice.noise_cancel', {'enabled': true, 'apply': 'yes'}), refused('bad_params'));
+
+    // Install WebRTC SPA plugin too -> now available (supports multiarch dirs)
+    w.writeFile(p.join(w.root, 'usr/lib/x86_64-linux-gnu/spa-0.2/aec/libspa-aec-webrtc.so'), '');
+    expect((await core.call('voice.get'))['noise_cancel'], {'available': true, 'enabled': false, 'active': false});
+
+    // Enable with apply: true -> writes 0644 config, restarts PipeWire, polls until virtual mic appears (H3)
+    w.writeFile(p.join(w.home, 'systemctl-spawn-mic'), '');
+    final enabled = await core.call('voice.noise_cancel', {'enabled': true, 'apply': true});
+    expect(enabled['applied'], isTrue);
+    expect(enabled['enabled'], isTrue);
+    expect(enabled['active'], isTrue);
+    expect(enabled['noise_cancel'], {'available': true, 'enabled': true, 'active': true});
+    final conf = File(p.join(w.home, '.config/pipewire/pipewire.conf.d/50-maprisma-noise-cancel.conf'));
+    expect(conf.existsSync(), isTrue);
+    expect(conf.statSync().mode & 0x1ff, 0x1a4); // 0644
+    final content = conf.readAsStringSync();
+    expect(content, contains('libpipewire-module-echo-cancel'));
+    expect(content, contains('aec/libspa-aec-webrtc'));
+    expect(content, contains('maprisma.noise_cancel_source'));
+    expect(content, contains('Maprisma Noise-Cancelling Mic'));
+    expect(File(p.join(w.home, 'systemctl.log')).readAsLinesSync(), ['--user restart pipewire wireplumber']);
+
+    // Calling enable again when config is already identical skips restarting PipeWire (L5)
+    final noop = await core.call('voice.noise_cancel', {'enabled': true, 'apply': true});
+    expect(noop['applied'], isFalse);
+    expect(File(p.join(w.home, 'systemctl.log')).readAsLinesSync(), ['--user restart pipewire wireplumber']);
+
+    // Disabling resets selected microphone from maprisma.noise_cancel_source to default (M5)
+    // and reports a graceful message if systemctl fails (L3)
+    answer('settings.json', {'microphone': 'maprisma.noise_cancel_source'});
+    w.writeFile(p.join(w.home, 'systemctl-fail'), '');
+    final disabled = await core.call('voice.noise_cancel', {'enabled': false, 'apply': true});
+    expect(disabled['applied'], isFalse);
+    expect(disabled['enabled'], isFalse);
+    expect(disabled['message'], contains('Failed to connect to bus'));
+    expect(conf.existsSync(), isFalse);
+    expect(calls(), contains(equals(['set', 'microphone', '"default"'])));
+
+    // Symlink safety: never follow symlink at config file or subdirectory
+    final victim = File(p.join(w.home, 'victim.txt'))..writeAsStringSync('keep');
+    Link(conf.path).createSync(victim.path);
+    expect((await core.call('voice.get'))['noise_cancel'], {'available': true, 'enabled': false, 'active': true});
+    await expectLater(core.call('voice.noise_cancel', {'enabled': false}), refused('failed'));
+    await expectLater(core.call('voice.noise_cancel', {'enabled': true}), refused('failed'));
+    expect(victim.readAsStringSync(), 'keep');
+    Link(conf.path).deleteSync();
+    Directory(p.join(w.home, '.config/pipewire/pipewire.conf.d')).deleteSync();
+    Link(p.join(w.home, '.config/pipewire/pipewire.conf.d')).createSync(w.home);
+    await expectLater(core.call('voice.noise_cancel', {'enabled': true}), refused('failed'));
+
+    // Symlinked XDG_CONFIG_HOME itself (dotfile managers) IS allowed (M3)
+    final realCfg = Directory(p.join(w.dir, 'dotfiles-config'))..createSync(recursive: true);
+    final linkedCfg = p.join(w.dir, 'linked-config');
+    Link(linkedCfg).createSync(realCfg.path);
+    final dotCore = w.core(extra: {'XDG_CONFIG_HOME': linkedCfg});
+    final dotRes = await dotCore.call('voice.noise_cancel', {'enabled': true, 'apply': false});
+    expect(dotRes['enabled'], isTrue);
+    expect(File(p.join(realCfg.path, 'pipewire/pipewire.conf.d/50-maprisma-noise-cancel.conf')).existsSync(), isTrue);
+  });
+
+  test('Try it (--events): streams live level, peak, partial and final, nullable before first level, graceful cancel, handles no_speech & error', () async {
+    installFake();
+    answer('status.json', _status);
+    answer('events', '');
+    answer('slow', '');
+    final core = w.core();
+    final started = await core.call('voice.try', {'seconds': 6});
+    // U2: level and peak start as null until a real level JSON event arrives
+    expect((started['task'] as Map)['level'], isNull);
+    expect((started['task'] as Map)['peak'], isNull);
+    // Live level and partial update while running (and stdin stays open so it doesn't cancel!)
+    for (var i = 0; i < 100 && ((await core.call('voice.tasks'))['dictate'] as Map)['partial'] != 'hello'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    final live = (await core.call('voice.tasks'))['dictate'] as Map;
+    expect(live['state'], 'running');
+    expect(live['partial'], 'hello');
+    expect(live['level'], closeTo(0.042, 0.0001));
+    expect(live['peak'], closeTo(0.042, 0.0001));
+    // Let it finish
+    answer('go', '');
+    final done = await settle(core, 'dictate');
+    expect(done['state'], 'succeeded');
+    expect(done['text'], 'Hello from events.');
+    expect(done['level'], closeTo(0.020, 0.0001));
+    expect(done['peak'], closeTo(0.085, 0.0001));
+
+    // Graceful cancel via stdin ("cancel\n" + EOF) exits cleanly before SIGTERM grace (M2)
+    File(p.join(w.home, 'voice/go')).deleteSync();
+    await core.call('voice.try', {'seconds': 5});
+    for (var i = 0; i < 100 && ((await core.call('voice.tasks'))['dictate'] as Map)['partial'] != 'hello'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    await core.call('voice.cancel', {'kind': 'dictate'});
+    expect((await settle(core, 'dictate'))['state'], 'cancelled');
+
+    // no_speech closed event -> empty text, succeeds cleanly so UI says "Nothing was heard"
+    File(p.join(w.home, 'voice/events')).deleteSync();
+    File(p.join(w.home, 'voice/slow')).deleteSync();
+    answer('events_nospeech', '');
+    await core.call('voice.try', {'seconds': 5});
+    final ns = await settle(core, 'dictate');
+    expect(ns['state'], 'succeeded');
+    expect(ns['text'], '');
+    expect(ns['peak'], closeTo(0.004, 0.0001));
+
+    // error event -> failed with error message
+    File(p.join(w.home, 'voice/events_nospeech')).deleteSync();
+    answer('events_error', '');
+    await core.call('voice.try', {'seconds': 5});
+    final er = await settle(core, 'dictate');
+    expect(er['state'], 'failed');
+    expect(er['message'], 'Microphone unplugged');
   });
 }

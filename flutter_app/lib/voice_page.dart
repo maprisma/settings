@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart' show VoiceService, tr, trf;
@@ -50,6 +51,8 @@ class VoicePageState extends State<VoicePage> with RoutePage {
   /// voice.tasks as last polled (download, dictate).
   Map<String, dynamic> tasks = const {};
   Timer? _poll;
+  Duration? _pollInterval;
+  bool _pollInFlight = false;
 
   /// The wake phrase's field: saved on submit or when it loses the focus.
   final phrase = TextEditingController();
@@ -184,27 +187,45 @@ class VoicePageState extends State<VoicePage> with RoutePage {
 
   bool get _anyRunning => _running('download') || _running('dictate') || _running('wake');
 
-  /// Polls voice.tasks while one runs; when one ends, the page is read again.
+  /// Polls voice.tasks with a chained one-shot timer (150 ms while dictating so the live level
+  /// meter animates smoothly; 400 ms for downloads and wake tests). Never overlaps slow replies.
   void _follow() {
-    if (_poll != null || !_anyRunning) return;
-    _poll = Timer.periodic(const Duration(milliseconds: 400), (_) async {
+    if (!_anyRunning) {
+      _poll?.cancel();
+      _poll = null;
+      _pollInterval = null;
+      return;
+    }
+    if (_pollInFlight) return;
+    final want = _running('dictate') ? const Duration(milliseconds: 150) : const Duration(milliseconds: 400);
+    if (_poll != null && _pollInterval == want) return;
+    _poll?.cancel();
+    _pollInterval = want;
+    _poll = Timer(want, () async {
+      _poll = null;
+      _pollInterval = null;
+      if (!mounted || !_anyRunning) return;
+      _pollInFlight = true;
       final wasDownload = _running('download');
-      Map<String, dynamic> t;
+      Map<String, dynamic>? t;
       try {
         t = await core('voice.tasks');
       } on ServiceError {
-        return;
+        // retry on next scheduled poll
+      } finally {
+        _pollInFlight = false;
       }
       if (!mounted) return;
-      setState(() => tasks = t);
-      if (!_anyRunning) {
-        _poll?.cancel();
-        _poll = null;
+      if (t != null) {
+        final next = t;
+        setState(() => tasks = next);
       }
       if (wasDownload && !_running('download')) {
-        final download = t['download'] as Map?;
+        final download = t?['download'] as Map?;
         if (download?['state'] == 'failed') tellOn(this, trf('The download failed: {0}', [download?['message'] ?? '']));
         await load();
+      } else {
+        _follow();
       }
     });
   }
@@ -230,6 +251,23 @@ class VoicePageState extends State<VoicePage> with RoutePage {
   }
 
   Future<void> _set(String key, Object value) => act('voice.set', {'key': key, 'value': value});
+
+  Future<void> _setNoiseCancel(bool enabled) async {
+    if (working) return;
+    setState(() => working = true);
+    try {
+      try {
+        final r = await core('voice.noise_cancel', {'enabled': enabled, 'apply': true});
+        final msg = '${r['message'] ?? ''}'.trim();
+        if (msg.isNotEmpty) tellOn(this, msg);
+      } on ServiceError catch (e) {
+        tellOn(this, failure(e));
+      }
+      if (mounted) await load();
+    } finally {
+      if (mounted) setState(() => working = false);
+    }
+  }
 
   Future<void> _otherLanguage() async {
     final code = await showDialog<String>(context: context, builder: (_) => const _LanguageCodeDialog());
@@ -393,6 +431,134 @@ class VoicePageState extends State<VoicePage> with RoutePage {
           value: settings['preload'] == true,
           onChanged: lock ? null : (v) => _set('preload', v),
         ),
+      ],
+    );
+  }
+
+  static String noiseFilterName(String id) => switch (id) {
+    'off' => tr('Off'),
+    'strong' => tr('Strong'),
+    _ => tr('Standard'),
+  };
+
+  static String vadSensitivityName(String id) => switch (id) {
+    'strict' => tr('Strict'),
+    'sensitive' => tr('Sensitive'),
+    _ => tr('Normal'),
+  };
+
+  static String _resolvedEngine(Map s, [Map settings = const {}]) {
+    final live = '${s['engine'] ?? ''}';
+    if (live.isNotEmpty) return live;
+    final configured = '${settings['engine'] ?? ''}';
+    return configured == 'auto' ? '' : configured;
+  }
+
+  /// Whether [engine] is an external engine that handles its own transcription.
+  static bool isExternalEngine(String engine) => engine.isNotEmpty && engine != 'whisper' && engine != 'online';
+
+  /// Engine-aware explanation for the Whisper hallucination rejection toggle.
+  static String hallucinationDescription(Map s, [Map settings = const {}]) {
+    final engine = _resolvedEngine(s, settings);
+    return switch (engine) {
+      'whisper' => tr('Filters common false phrases (such as “Thank you” or “Subtitles by…”) that Local Whisper sometimes hallucinates on silence or background noise.'),
+      'online' => tr('Filters common false phrases that Online Whisper sometimes hallucinates on silence or background noise.'),
+      '' => tr('Filters common false phrases that Local Whisper or Online Whisper sometimes hallucinates on silence or background noise.'),
+      _ => trf('Only applies to Local Whisper and Online Whisper ({0} handles its own transcription).', [engineName(engine)]),
+    };
+  }
+
+  /// RMS 0…1 in dBFS, clamped to [-60, 0].
+  static double levelDbValue(double rms) =>
+      rms <= 0.001 ? -60.0 : (20 * math.log(rms) / math.ln10).clamp(-60.0, 0.0);
+
+  /// RMS 0…1 formatted as dBFS (clamped at -60 dB).
+  static String levelDb(double rms) => rms <= 0.001 ? '< -60 dB' : '${levelDbValue(rms).round()} dB';
+
+  Widget _audioFiltering(Map d, Map s) {
+    final settings = (d['settings'] as Map?) ?? const {};
+    final lock = working;
+    final marks = markColors(context);
+    final rawNoise = '${s['noise_filter'] ?? settings['noise_filter'] ?? 'standard'}';
+    final noiseFilter = VoiceService.noiseFilters.contains(rawNoise) ? rawNoise : 'standard';
+    final rawVad = '${s['vad_sensitivity'] ?? settings['vad_sensitivity'] ?? 'normal'}';
+    final vadSensitivity = VoiceService.vadSensitivities.contains(rawVad) ? rawVad : 'normal';
+    final hallucination = (s['hallucination_filter'] ?? settings['hallucination_filter']) != false;
+    final activeEngine = _resolvedEngine(s, settings);
+    final externalEngine = isExternalEngine(activeEngine);
+    final nc = (d['noise_cancel'] as Map?) ?? const {};
+    final ncAvailable = nc['available'] == true;
+    final ncEnabled = nc['enabled'] == true;
+    final ncActive = nc['active'] == true;
+
+    final String ncDescription;
+    if (ncEnabled && ncActive) {
+      ncDescription = tr('Active. Select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above to use WebRTC noise suppression. Switching restarts audio briefly.');
+    } else if (ncEnabled) {
+      ncDescription = tr('Enabled — waiting for PipeWire (takes effect after audio restarts). Select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above once available.');
+    } else {
+      ncDescription = tr('Creates a virtual PipeWire microphone with WebRTC noise suppression. Switching restarts audio briefly; once active, select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above.');
+    }
+
+    return SettingsSection(
+      title: tr('Audio & noise filtering'),
+      note: trf('Shared with Maprisma Dictation in {0}.', ['~/.config/maprisma-voice/settings.json']),
+      children: [
+        SettingsChoice<String>(
+          key: const ValueKey('voice-noise-filter'),
+          title: tr('Noise filter'),
+          description: tr('Trims startup clicks, filters low-frequency rumble, and adapts to background noise before transcription.'),
+          value: noiseFilter,
+          choices: [for (final x in VoiceService.noiseFilters) (x, noiseFilterName(x))],
+          onChanged: lock ? null : (v) => v == noiseFilter ? null : _set('noise_filter', v),
+        ),
+        SettingsChoice<String>(
+          key: const ValueKey('voice-vad-sensitivity'),
+          title: tr('Voice sensitivity'),
+          description: tr('Strict ignores background chatter in noisy rooms; Sensitive picks up quieter voices.'),
+          value: vadSensitivity,
+          choices: [for (final x in VoiceService.vadSensitivities) (x, vadSensitivityName(x))],
+          onChanged: lock ? null : (v) => v == vadSensitivity ? null : _set('vad_sensitivity', v),
+        ),
+        SettingsToggle(
+          key: const ValueKey('voice-hallucination-filter'),
+          title: tr('Reject Whisper hallucinations'),
+          description: hallucinationDescription(s, settings),
+          value: hallucination,
+          onChanged: lock || externalEngine ? null : (v) => _set('hallucination_filter', v),
+        ),
+        if (ncAvailable)
+          SettingsItem(
+            key: const ValueKey('voice-noise-cancel'),
+            title: tr('Noise-cancelling microphone (PipeWire)'),
+            description: ncDescription,
+            onTap: lock ? null : () => _setNoiseCancel(!ncEnabled),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (ncActive) ...[
+                  Container(
+                    key: const ValueKey('voice-noise-cancel-active'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: marks.running.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(cornerSizes(context).control),
+                      border: Border.all(color: marks.running.withValues(alpha: .45)),
+                    ),
+                    child: Text(
+                      tr('Active'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: marks.running, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Switch(
+                  value: ncEnabled,
+                  onChanged: lock ? null : _setNoiseCancel,
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -715,13 +881,59 @@ class VoicePageState extends State<VoicePage> with RoutePage {
 
   Widget _try(Map? s) {
     final scheme = Theme.of(context).colorScheme;
+    final marks = markColors(context);
     final t = tasks['dictate'] as Map?;
     final running = _running('dictate');
     final ready = s?['ready'] == true;
     // Voxtype, Superwhisper and Omarchy type the text themselves, into the focused window
     final typesItself = s?['typed_by_engine'] == true;
+    Widget? meter;
     Widget? result;
     if (t != null) {
+      final level = t['level'] is num ? (t['level'] as num).toDouble().clamp(0.0, 1.0) : null;
+      final peak = t['peak'] is num ? (t['peak'] as num).toDouble().clamp(0.0, 1.0) : null;
+      final shown = running ? level : peak;
+      if (shown != null) {
+        final db = levelDbValue(shown);
+        final bar = ((db + 60.0) / 60.0).clamp(0.0, 1.0);
+        final (Color barColor, String hint) = db < -40.0
+            ? (scheme.onSurfaceVariant.withValues(alpha: .55), tr('Quiet / noise floor'))
+            : db < -15.0
+            ? (marks.running, tr('Voice detected'))
+            : db < -6.0
+            ? (marks.update, tr('Loud'))
+            : (scheme.error, tr('Too loud — lower mic gain'));
+        final small = Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, fontFeatures: const [FontFeature.tabularFigures()]);
+        meter = Padding(
+          key: const ValueKey('voice-try-level'),
+          padding: SettingsMetrics.rowPadding.copyWith(top: 10, bottom: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(running ? tr('Microphone level') : tr('Peak microphone level'), style: small),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('$hint · ${levelDb(shown)}', style: small?.copyWith(color: db < -40.0 ? scheme.onSurfaceVariant : barColor)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(cornerSizes(context).small),
+                child: LinearProgressIndicator(
+                  value: bar,
+                  minHeight: 8,
+                  color: barColor,
+                  backgroundColor: scheme.surfaceContainerHighest,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
       final state = t['state'];
       final partial = '${t['partial'] ?? ''}', text = '${t['text'] ?? ''}', message = '${t['message'] ?? ''}';
       final muted = Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant, fontStyle: FontStyle.italic);
@@ -770,6 +982,7 @@ class VoicePageState extends State<VoicePage> with RoutePage {
                   child: Text(tr('Try it')),
                 ),
         ),
+        ?meter,
         ?result,
       ],
     );
@@ -787,6 +1000,7 @@ class VoicePageState extends State<VoicePage> with RoutePage {
       children: [
         _status(d, s),
         _dictation(d, s ?? const {}),
+        _audioFiltering(d, s ?? const {}),
         _wake(d, s),
         _models(d),
         _try(s),

@@ -249,6 +249,7 @@ final class CoreService {
       'voice.cancel': (params) => voice.cancel(params),
       'voice.status': (_) => voice.status(),
       'voice.wake_test': (params) => voice.wakeTest(params),
+      'voice.noise_cancel': (params) => voice.setNoiseCancel(params),
       // Displays and Input devices on Hyprland (hypr-manager.lua, hypr_config.dart).
       'displays.get': (_) => displays.get(),
       'displays.set': (params) => displays.set(params),
