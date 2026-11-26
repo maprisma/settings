@@ -164,4 +164,25 @@ void main() {
     expect(AiPageState.webSearchNote(_helpers(none: true)), isNull);
     expect(AiPageState.webSearchNote(_helpers(helper: 'pi:ollama/qwen3')), "Works with Claude Code; pi · qwen3 can't search the web here");
   });
+
+  testWidgets('long local model names never squeeze the helper row title into a narrow column', (tester) async {
+    final longHelpers = {
+      ..._helpers(),
+      'helpers': [
+        {'id': 'claude', 'name': 'Claude Code', 'installed': true, 'signed_in': true},
+        {'id': 'pi:llama-local/gemma-4-26B-A4B-it-UD-Q4_K_M', 'name': 'pi · gemma-4-26B-A4B-it-UD-Q4_K_M', 'installed': true, 'signed_in': true},
+        {'id': 'pi:llama-local/Qwen3.8-27B-Instruct-Super-Long-Quantized-Q4_K_M', 'name': 'pi · Qwen3.8-27B-Instruct-Super-Long-Quantized-Q4_K_M', 'installed': true, 'signed_in': true},
+      ],
+    };
+    for (final width in [600.0, 440.0]) {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      await open(tester, longHelpers);
+      final titleRect = tester.getRect(find.text('AI helper for all Maprisma apps'));
+      expect(titleRect.width, greaterThan(220), reason: 'at width $width');
+      expect(titleRect.height, lessThan(60), reason: 'at width $width');
+      expect(tester.takeException(), isNull);
+    }
+    tester.view.reset();
+  });
 }

@@ -94,7 +94,7 @@ class AiPageState extends State<AiPage> with RoutePage {
           title: tr('Helper'),
           note: note,
           children: [
-            SettingsChoice<String>(
+            _HelperChoiceRow(
               key: const ValueKey('ai-page-helper'),
               title: tr('AI helper for all Maprisma apps'),
               description: tr('Launcher, Theme, Playground, Notifier (Check with AI), Mail and the AI updates of Maprisma Settings use it. Automatic picks the first installed helper that can do the job.'),
@@ -137,6 +137,86 @@ class AiPageState extends State<AiPage> with RoutePage {
         ),
         AskAiRules(core: core),
       ],
+    );
+  }
+}
+
+/// Choice row whose dropdown is width-bounded (and stacks below on narrow cards), so long local
+/// model names like `pi · gemma-4-26B-A4B-it-UD-Q4_K_M` never squeeze the title column.
+class _HelperChoiceRow extends StatelessWidget {
+  const _HelperChoiceRow({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.choices,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String description;
+  final String value;
+  final List<(String, String)> choices;
+  final ValueChanged<String>? onChanged;
+
+  Widget _dropdown(BuildContext context) {
+    final style = MaprismaStyleExtension.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: choices.any((c) => c.$1 == value) ? value : null,
+        isDense: true,
+        isExpanded: true,
+        borderRadius: BorderRadius.circular(style.radius),
+        dropdownColor: scheme.surfaceContainerHigh,
+        selectedItemBuilder: (context) => [
+          for (final (_, label) in choices)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        items: [
+          for (final (v, label) in choices)
+            DropdownMenuItem<String>(
+              value: v,
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        onChanged: onChanged == null ? null : (v) => v == null ? null : onChanged!(v),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Padding(
+            padding: SettingsMetrics.rowPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 8),
+                  child: Text(description, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ),
+                _dropdown(context),
+              ],
+            ),
+          );
+        }
+        final maxDrop = (constraints.maxWidth * 0.4).clamp(180.0, 260.0);
+        return SettingsItem(
+          title: title,
+          description: description,
+          trailing: SizedBox(width: maxDrop, child: _dropdown(context)),
+        );
+      },
     );
   }
 }
