@@ -26,6 +26,7 @@ import 'icon_gallery.dart';
 import 'jobs.dart';
 import 'ownership.dart';
 import 'paths.dart';
+import 'procs.dart';
 import 'receipts.dart';
 import 'sysproc.dart';
 
@@ -224,7 +225,10 @@ final class _IconState {
   final Map<String, dynamic> data;
   String get original => p.join(dir, 'original.svg');
   String get chosen => p.join(dir, 'chosen.svg');
+  String get variantsDir => p.join(dir, 'variants');
+  String variantOriginal(String base) => p.join(variantsDir, base);
   Map<String, dynamic>? get choice => data['choice'] as Map<String, dynamic>?;
+  Map<String, dynamic> get variants => (data['variants'] as Map<String, dynamic>?) ?? <String, dynamic>{};
 
   static _IconState load(Paths paths, String app) {
     final dir = p.join(paths.managerState, 'icons', app);
@@ -436,6 +440,95 @@ final class IconService {
     if (File(st.chosen).existsSync()) sha256File(st.chosen),
   };
 
+  /// Sibling state-variant SVGs (`<stem>-active-symbolic.svg`, `<stem>-off-symbolic.svg`, …)
+  /// installed next to the base `-symbolic.svg` icon.
+  List<String> _variantFiles(AppEntry app) {
+    final name = app.bar.iconName;
+    if (name == null || !name.endsWith('-symbolic')) return const [];
+    final stem = name.substring(0, name.length - '-symbolic'.length);
+    final baseFile = '$name.svg';
+    final dir = Directory(paths.icons);
+    if (!dir.existsSync()) return const [];
+    final out = <String>[];
+    try {
+      for (final e in dir.listSync(followLinks: false)) {
+        if (FileSystemEntity.typeSync(e.path, followLinks: false) != FileSystemEntityType.file) continue;
+        final base = p.basename(e.path);
+        if (base == baseFile) continue;
+        if (base.startsWith('$stem-') && base.endsWith('-symbolic.svg')) out.add(e.path);
+      }
+    } on FileSystemException {
+      return const [];
+    }
+    out.sort();
+    return out;
+  }
+
+  /// Adapts [chosenBytes] for a state variant whose original used KDE's `ColorScheme-Highlight`
+  /// (so active accent tinting keeps working on KDE Plasma too).
+  List<int> _variantBytes(List<int> chosenBytes, List<int> originalBytes) {
+    final orig = utf8.decode(originalBytes, allowMalformed: true);
+    if (!orig.contains('ColorScheme-Highlight')) return chosenBytes;
+    final chosen = utf8.decode(chosenBytes, allowMalformed: true);
+    if (!chosen.contains('ColorScheme-Text')) return chosenBytes;
+    return utf8.encode(chosen.replaceAll('ColorScheme-Text', 'ColorScheme-Highlight'));
+  }
+
+  Set<String> _ourVariantShas(_IconState st, String base) {
+    final entry = st.variants[base];
+    return {
+      ..._ours(st),
+      if (entry is Map && entry['chosenSha256'] is String) entry['chosenSha256'] as String,
+    };
+  }
+
+  void _applyVariants(AppEntry app, _IconState st, List<int> chosenBytes) {
+    final variants = Map<String, dynamic>.from(st.variants);
+    final nowIso = ctx.clock().toUtc().toIso8601String();
+    var touched = false;
+    for (final vFile in _variantFiles(app)) {
+      final base = p.basename(vFile);
+      final current = File(vFile).readAsBytesSync();
+      final currentSha = _sha(current);
+      final origPath = st.variantOriginal(base);
+      final hasOrig = File(origPath).existsSync();
+      if (!_ourVariantShas(st, base).contains(currentSha) && (!hasOrig || sha256File(origPath) != currentSha)) {
+        atomicWriteBytes(origPath, current);
+      }
+      final origBytes = File(origPath).existsSync() ? File(origPath).readAsBytesSync() : current;
+      final outBytes = _variantBytes(chosenBytes, origBytes);
+      final outSha = _sha(outBytes);
+      variants[base] = {
+        'originalSha256': _sha(origBytes),
+        'chosenSha256': outSha,
+        'at': nowIso,
+      };
+      st.data['variants'] = variants;
+      st.save();
+      atomicWriteBytes(vFile, outBytes);
+      _receiptFollows(app, vFile, outSha);
+      touched = true;
+    }
+    if (touched) st.save();
+  }
+
+  void _restoreVariants(AppEntry app, _IconState st) {
+    final dir = Directory(st.variantsDir);
+    if (!dir.existsSync()) return;
+    for (final e in dir.listSync(followLinks: false)) {
+      if (FileSystemEntity.typeSync(e.path, followLinks: false) != FileSystemEntityType.file) continue;
+      final base = p.basename(e.path);
+      if (!base.endsWith('-symbolic.svg')) continue;
+      final target = p.join(paths.icons, base);
+      final now = File(target).existsSync() ? sha256File(target) : null;
+      if (now == null || _ourVariantShas(st, base).contains(now)) {
+        final origBytes = File(e.path).readAsBytesSync();
+        atomicWriteBytes(target, origBytes);
+        _receiptFollows(app, target, _sha(origBytes));
+      }
+    }
+  }
+
   Future<Map<String, dynamic>> set(Map<String, dynamic> params) async {
     final app = _app(params);
     _checkFree(app);
@@ -470,6 +563,7 @@ final class IconService {
         st.save();
         atomicWriteBytes(file, icon.bytes);
         _receiptFollows(app, file, sha);
+        _applyVariants(app, st, icon.bytes);
         return st.data['choice'] as Map<String, dynamic>;
       });
       final refreshed = await _refresh(app);
@@ -495,6 +589,7 @@ final class IconService {
           atomicWriteBytes(file, bytes);
           _receiptFollows(app, file, _sha(bytes));
         }
+        _restoreVariants(app, st);
         // the file is the installer's again (restored, or a newer default): nothing of ours is kept
         Directory(st.dir).deleteSync(recursive: true);
         return {'reset': true, 'sha256': File(file).existsSync() ? sha256File(file) : null};
@@ -518,11 +613,15 @@ final class IconService {
     final now = File(file).readAsBytesSync();
     final chosen = File(st.chosen).readAsBytesSync();
     if (_sha(chosen) != choice['sha256']) return trf('the chosen bar icon is not applied: {0} changed', [st.chosen]);
-    if (_sha(now) == choice['sha256']) return tr('the chosen bar icon is in place');
+    if (_sha(now) == choice['sha256']) {
+      _applyVariants(app, st, chosen);
+      return tr('the chosen bar icon is in place');
+    }
     atomicWriteBytes(st.original, now);
     st.data['original'] = {'sha256': _sha(now), 'at': ctx.clock().toUtc().toIso8601String()};
     st.save();
     atomicWriteBytes(file, chosen);
+    _applyVariants(app, st, chosen);
     return trf('the chosen bar icon ({0}) written over the installer\'s {1} again', [choice['name'] ?? choice['from'], file]);
   }
 
@@ -543,15 +642,43 @@ final class IconService {
     atomicWrite(path, const JsonEncoder.withIndent('  ').convert(data));
   }
 
+  static String? _realPath(String path) {
+    try {
+      return File(path).resolveSymbolicLinksSync();
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  static bool _isMaprismaShell(ProcInfo pr) {
+    final base = pr.exe == null ? '' : p.basename(pr.exe!);
+    if (base != 'quickshell' && base != 'qs') return false;
+    for (var i = 0; i < pr.argv.length; i++) {
+      if ((pr.argv[i] == '-c' || pr.argv[i] == '--config') && i + 1 < pr.argv.length && pr.argv[i + 1] == 'maprisma-shell') {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Icon cache, then the bar icon: COSMIC: the applet's panel file written without it and back
   /// (the panel rebuilds and starts it again, as after installs; never a panel restart); KDE: the
-  /// tray started again (when it runs and starts at login).
+  /// KDE icon cache cleared and the tray started again; Hyprland: the tray started again and
+  /// Maprisma Shell reloaded so Qt's icon cache picks up the new SVG immediately.
   Future<Map<String, dynamic>> _refresh(AppEntry app) async {
     final out = <String, dynamic>{};
     final cacheDir = p.join(paths.data, 'icons/hicolor');
     if (ctx.runner.which('gtk-update-icon-cache') != null && Directory(cacheDir).existsSync()) {
-      final r = await ctx.runner.run(['gtk-update-icon-cache', '-q', '-t', cacheDir], timeout: const Duration(seconds: 60));
+      final r = await ctx.runner.run(['gtk-update-icon-cache', '-q', '-f', '-t', cacheDir], timeout: const Duration(seconds: 60));
       out['iconCache'] = r.ok ? 'updated' : 'failed: ${r.stderr.trim()}';
+    }
+    if (ctx.desktop == DesktopId.kde) {
+      final kcache = File(p.join(paths.cache, 'icon-cache.kcache'));
+      try {
+        if (kcache.existsSync()) kcache.deleteSync();
+      } on FileSystemException {
+        // best effort
+      }
     }
     final procs = ctx.processes();
     if (ctx.desktop == DesktopId.cosmic && app.bar.cosmicApplet != null) {
@@ -571,15 +698,30 @@ final class IconService {
       }
     } else if (traysDesktop(ctx.desktop) && app.bar.kdeTrayExe != null && app.bar.kdeAutostart != null) {
       final exe = paths.expand(app.bar.kdeTrayExe!);
-      final trays = [for (final pr in procs) if (pr.exe == exe) pr];
+      final realExe = _realPath(exe);
+      final trays = [
+        for (final pr in procs)
+          if (pr.exe == exe || (realExe != null && pr.exe == realExe)) pr,
+      ];
       final autostart = paths.expand(app.bar.kdeAutostart!);
       final shown = File(autostart).existsSync() && !desktopHidden(autostart);
+      final barOut = <String, dynamic>{};
       if (trays.isEmpty || !shown) {
-        out['bar'] = {'note': trays.isEmpty ? tr('the tray doesn\'t run') : tr('the tray is out of the bar')};
+        barOut['note'] = trays.isEmpty ? tr('the tray doesn\'t run') : tr('the tray is out of the bar');
       } else {
         await stopProcesses(trays, signaller: jobs.signaller, procRoot: paths.proc, uid: ctx.uid, grace: jobs.stopGrace);
-        out['bar'] = {'trayRestarted': await jobs.startTray(exe, app.bar.kdeTrayArgs)};
+        barOut['trayRestarted'] = await jobs.startTray(exe, app.bar.kdeTrayArgs);
       }
+      if (ctx.desktop == DesktopId.hyprland) {
+        final shells = [for (final pr in procs) if (_isMaprismaShell(pr)) pr];
+        final qs = ctx.runner.which('qs');
+        if (shells.isNotEmpty && qs != null) {
+          await ctx.runner.run([qs, 'kill', '-c', 'maprisma-shell'], timeout: const Duration(seconds: 5));
+          await stopProcesses(shells, signaller: jobs.signaller, procRoot: paths.proc, uid: ctx.uid, grace: const Duration(seconds: 2));
+          barOut['shellRestarted'] = await jobs.startTray(qs, const ['-c', 'maprisma-shell', '-n', '-d']);
+        }
+      }
+      out['bar'] = barOut;
     } else {
       out['bar'] = {'note': tr('no bar icon on this desktop')};
     }

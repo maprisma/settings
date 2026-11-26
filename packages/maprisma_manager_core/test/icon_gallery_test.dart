@@ -456,5 +456,70 @@ void main() {
       expect(wlanTray['barIconFile'], wlanIconFile);
       expect(wlanTray['barIconSha'], sha256File(wlanIconFile));
     });
+
+    test('icons.set updates sibling state variants (-active-symbolic, -off-symbolic) and reset restores them byte for byte', () async {
+      w.install('wlan');
+      final baseFile = p.join(w.paths.icons, 'io.github.ubruckhaus.CosmicMaprismaWlanMonitor-symbolic.svg');
+      final activeFile = p.join(w.paths.icons, 'io.github.ubruckhaus.CosmicMaprismaWlanMonitor-active-symbolic.svg');
+      final offFile = p.join(w.paths.icons, 'io.github.ubruckhaus.CosmicMaprismaWlanMonitor-off-symbolic.svg');
+      const origBase = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="1"/></svg>\n';
+      const origActive = '<svg xmlns="http://www.w3.org/2000/svg"><defs><style>.ColorScheme-Highlight{color:#3daee9;}</style></defs><circle class="ColorScheme-Highlight" r="2"/></svg>\n';
+      const origOff = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="3"/></svg>\n';
+      w.writeFile(baseFile, origBase);
+      w.writeFile(activeFile, origActive);
+      w.writeFile(offFile, origOff);
+
+      final c = makeCore(fetcher: (_) async => jsonEncode(_sampleLucide));
+      await c.call('icons.set', {'app': 'wlan', 'icon': 'gallery:lucide:wifi'});
+
+      // Active variant uses the chosen icon and preserves KDE ColorScheme-Highlight.
+      final activeText = File(activeFile).readAsStringSync();
+      expect(activeText, contains('M5 13a10 10 0 0 1 14 0'));
+      expect(activeText, contains('ColorScheme-Highlight'));
+      expect(File(offFile).readAsStringSync(), contains('M5 13a10 10 0 0 1 14 0'));
+
+      // Switching to a second icon keeps the true originals backed up.
+      await c.call('icons.set', {'app': 'wlan', 'icon': 'gallery:lucide:bell'});
+      expect(File(activeFile).readAsStringSync(), contains('M6 8a6 6 0 0 1 12 0'));
+
+      // Reset restores base and every sibling variant byte for byte.
+      await c.call('icons.reset', {'app': 'wlan'});
+      expect(File(baseFile).readAsStringSync(), origBase);
+      expect(File(activeFile).readAsStringSync(), origActive);
+      expect(File(offFile).readAsStringSync(), origOff);
+    });
+
+    test('Hyprland refresh restarts symlinked trays and reloads running maprisma-shell; KDE clears icon-cache.kcache', () async {
+      // Hyprland: symlinked tray + running maprisma-shell (quickshell).
+      w.install('settings');
+      final iconFile = p.join(w.paths.icons, 'io.github.ubruckhaus.CosmicMaprismaManager-symbolic.svg');
+      w.writeFile(iconFile, '<svg xmlns="http://www.w3.org/2000/svg"><circle r="1"/></svg>\n');
+      final realTray = p.join(w.paths.lib, 'maprisma-settings/bin/maprisma-settings-tray');
+      w.writeFile(realTray, '#!/bin/sh\nexit 0\n', mode: '755');
+      final binTray = p.join(w.paths.bin, 'maprisma-settings-tray');
+      if (FileSystemEntity.typeSync(binTray, followLinks: false) != FileSystemEntityType.notFound) {
+        File(binTray).deleteSync();
+      }
+      Link(binTray).createSync(realTray);
+      w.writeFile(w.paths.expand(findApp('settings')!.bar.kdeAutostart!), '[Desktop Entry]\nExec=x\n');
+
+      final qsLog = p.join(w.dir, 'qs.log');
+      w.fake('qs', 'printf "%s\\n" "\$*" >> "$qsLog"\nexit 0');
+      w.process(701, exe: realTray);
+      w.process(702, exe: '/usr/bin/quickshell', argv: ['qs', '-c', 'maprisma-shell', '-n', '-d']);
+
+      final hypr = makeCore(desktop: 'Hyprland', fetcher: (_) async => jsonEncode(_sampleLucide));
+      final res = await hypr.call('icons.set', {'app': 'settings', 'icon': 'gallery:lucide:wifi'});
+      expect(res['bar']['trayRestarted'], isTrue);
+      expect(res['bar']['shellRestarted'], isTrue);
+      expect(File(qsLog).readAsStringSync(), contains('kill -c maprisma-shell'));
+
+      // KDE: icon-cache.kcache is removed when present.
+      final kcache = File(p.join(w.paths.cache, 'icon-cache.kcache'))..createSync(recursive: true);
+      expect(kcache.existsSync(), isTrue);
+      final kde = makeCore(desktop: 'KDE', fetcher: (_) async => jsonEncode(_sampleLucide));
+      await kde.call('icons.set', {'app': 'settings', 'icon': 'gallery:lucide:bell'});
+      expect(kcache.existsSync(), isFalse);
+    });
   });
 }
