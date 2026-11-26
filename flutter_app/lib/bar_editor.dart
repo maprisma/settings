@@ -234,13 +234,20 @@ class BarEditorPageState extends State<BarEditorPage> {
     return KeyEventResult.ignored;
   }
 
-  /// Where a drop at [globalX] lands in [area]: before the first chip whose middle is right of it.
-  int _slot(String area, double globalX) {
+  /// Where a drop at [globalPos] lands in [area]: row-aware for wrapped chips,
+  /// before the first chip on the same row whose middle is right of it (or at
+  /// the end of the row when dropping past its last chip).
+  int _slot(String area, Offset globalPos) {
     final list = entries(area);
     for (var i = 0; i < list.length; i++) {
       final box = _keys['${list[i]['id']}']?.currentContext?.findRenderObject() as RenderBox?;
       if (box == null || !box.hasSize) continue;
-      if (globalX < box.localToGlobal(Offset(box.size.width / 2, 0)).dx) return i;
+      final topLeft = box.localToGlobal(Offset.zero);
+      if (globalPos.dy < topLeft.dy) return i;
+      if (globalPos.dy <= topLeft.dy + box.size.height &&
+          globalPos.dx < topLeft.dx + box.size.width / 2) {
+        return i;
+      }
     }
     return list.length;
   }
@@ -253,16 +260,16 @@ class BarEditorPageState extends State<BarEditorPage> {
       'center' => tr('Centre'),
       _ => tr('Right'),
     };
-    Widget line() => Container(width: 3, height: 30, margin: EdgeInsets.symmetric(horizontal: 1), color: scheme.primary);
+    Widget line() => Container(width: 3, height: 30, margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 4), color: scheme.primary);
     return DragTarget<Map>(
       onWillAcceptWithDetails: (_) => !working,
       onMove: (d) {
-        final s = _slot(area, d.offset.dx);
+        final s = _slot(area, d.offset);
         if (_dropAt?.area != area || _dropAt?.slot != s) setState(() => _dropAt = (area: area, slot: s));
       },
       onLeave: (_) => setState(() => _dropAt = null),
       onAcceptWithDetails: (d) {
-        final s = _slot(area, d.offset.dx);
+        final s = _slot(area, d.offset);
         setState(() => _dropAt = null);
         final e = d.data;
         if (e['fromArea'] == null) {
@@ -273,8 +280,9 @@ class BarEditorPageState extends State<BarEditorPage> {
       },
       builder: (context, candidates, _) => Container(
         key: ValueKey('area-$area'),
+        width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(cornerSizes(context).board),
@@ -283,25 +291,30 @@ class BarEditorPageState extends State<BarEditorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 40),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < list.length; i++) ...[
-                      if (_dropAt?.area == area && _dropAt?.slot == i) line(),
-                      _chip(list[i], area: area),
-                    ],
-                    if (_dropAt?.area == area && _dropAt?.slot == list.length) line(),
-                    if (list.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(tr('Empty: drop an icon here'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                      ),
+            Row(
+              children: [
+                Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+                const Spacer(),
+                Text('${list.length}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 40),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (var i = 0; i < list.length; i++) ...[
+                    if (_dropAt?.area == area && _dropAt?.slot == i) line(),
+                    _chip(list[i], area: area),
                   ],
-                ),
+                  if (_dropAt?.area == area && _dropAt?.slot == list.length) line(),
+                  if (list.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(tr('Empty: drop an icon here'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    ),
+                ],
               ),
             ),
           ],
@@ -317,9 +330,11 @@ class BarEditorPageState extends State<BarEditorPage> {
       onAcceptWithDetails: (d) => unawaited(takeOut(d.data)),
       builder: (context, candidates, _) => Container(
         key: const ValueKey('area-out'),
-        margin: EdgeInsets.symmetric(vertical: 4),
-        padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(cornerSizes(context).board),
           border: Border.all(color: candidates.isNotEmpty ? scheme.primary : scheme.outlineVariant, style: BorderStyle.solid),
         ),
@@ -327,7 +342,9 @@ class BarEditorPageState extends State<BarEditorPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(tr('Not in the bar'), style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurfaceVariant)),
+            const SizedBox(height: 4),
             Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 for (final o in out) _chip(o, area: null),
                 if (out.isEmpty)

@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/app_facts.dart';
+import 'package:maprisma_manager/bar_editor.dart';
 import 'package:maprisma_manager/core_call.dart';
 import 'package:maprisma_manager/jobs_model.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
@@ -456,6 +457,72 @@ void main() {
       await settle(tester, 3);
       expect(find.byKey(const ValueKey('apps-title')), findsOneWidget);
     });
+  }
+
+  testWidgets('bar editor wraps all entries inside each section card in a narrow view and supports 2D drop', (tester) async {
+    final moved = <Map<String, dynamic>>[];
+    Future<Map<String, dynamic>> fakeCore(String method, [Map<String, dynamic> params = const {}]) async {
+      if (method == 'bar.move') {
+        moved.add(params);
+        return {'ok': true};
+      }
+      if (method == 'bar.get') {
+        return {
+          'kind': 'maprismaBar',
+          'revision': 'r1',
+          'areas': {
+            'left': [
+              for (var i = 0; i < 8; i++) {'id': 'l$i', 'name': 'Entry $i', 'ours': false},
+            ],
+            'center': [
+              for (var i = 0; i < 10; i++) {'id': 'c$i', 'name': 'Center Item $i', 'ours': false},
+            ],
+            'right': [
+              {'id': 'r0', 'name': 'Power', 'ours': false},
+            ],
+          },
+          'out': const [],
+        };
+      }
+      return {};
+    }
+
+    tester.view.physicalSize = const Size(520, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(home: BarEditorPage(core: fakeCore, apps: const [], embedded: true)));
+    await tester.pumpAndSettle();
+
+    final centerCard = find.byKey(const ValueKey('area-center'));
+    final cardRect = tester.getRect(centerCard);
+    // Every entry in Centre is rendered inside the card's horizontal bounds (wrapped, never clipped).
+    for (var i = 0; i < 10; i++) {
+      final item = find.descendant(of: centerCard, matching: find.text('Center Item $i'));
+      expect(item, findsOneWidget);
+      final rect = tester.getRect(item);
+      expect(rect.left, greaterThanOrEqualTo(cardRect.left));
+      expect(rect.right, lessThanOrEqualTo(cardRect.right));
+    }
+    // Wrapped onto multiple rows: last item sits below first item.
+    final firstRect = tester.getRect(find.text('Center Item 0'));
+    final lastRect = tester.getRect(find.text('Center Item 9'));
+    expect(lastRect.top, greaterThan(firstRect.bottom));
+
+    // Drag Center Item 0 onto the left half of Center Item 9 (on a lower wrapped row).
+    final g = await tester.startGesture(firstRect.center);
+    await tester.pump();
+    await g.moveTo(Offset(lastRect.left + 4, lastRect.center.dy));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(moved, hasLength(1));
+    expect(moved.single['entry'], 'c0');
+    expect(moved.single['area'], 'center');
+    expect(moved.single['index'], 8);
+  });
+
+  for (final width in [900.0, 460.0]) {
 
     testWidgets('the icon picker at ${width.round()} px: the note, search, preview, apply, reset', (tester) async {
       await open(tester, width);
