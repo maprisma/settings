@@ -14,7 +14,33 @@ void main() {
 
   String etc(String name) => p.join(w.root, 'etc/pacman.d', name);
 
+  void links() {
+    for (final t in ['sh', 'install', 'mv', 'cat', 'setsid', 'mktemp', 'grep', 'rm', 'mkdir', 'chmod', 'printf']) {
+      final real = ['/usr/bin/$t', '/bin/$t'].where((x) => File(x).existsSync()).firstOrNull;
+      if (real != null && !File(p.join(w.fakeBin, t)).existsSync()) Link(p.join(w.fakeBin, t)).createSync(real);
+    }
+    Directory(etc('')).createSync(recursive: true);
+  }
+
+  /// Arch without CachyOS: pkexec and a logging systemctl, no cachyos-rate-mirrors.
+  void plainTools() {
+    links();
+    w.fake('pkexec', r'"$@"');
+    w.fake('systemctl', r'case "$1" in show) ;; *) echo "$*" >> "$HOME/systemctl-calls" ;; esac');
+  }
+
+  Future<Map> follow(CoreService core) async {
+    Map run = {};
+    for (var i = 0; i < 100; i++) {
+      run = (await core.call('mirrors.get'))['run'] as Map;
+      if (run['code'] != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return run;
+  }
+
   void tools({String systemctl = ''}) {
+    links();
     w.fake('cachyos-rate-mirrors', r'echo "==> ranking" >&2; echo "$*" > "$HOME/rank-args"');
     w.fake('rate-mirrors', 'exit 0');
     // pkexec runs its command as given (no password in tests).
@@ -25,10 +51,6 @@ void main() {
   enable|disable) echo "$1 $2 $3" > "$HOME/systemctl-call" ;;
 esac'''
         : systemctl);
-    for (final t in ['sh', 'install', 'mv', 'cat', 'setsid']) {
-      final real = ['/usr/bin/$t', '/bin/$t'].firstWhere((x) => File(x).existsSync());
-      Link(p.join(w.fakeBin, t)).createSync(real);
-    }
   }
 
   test('without cachyos-rate-mirrors: not available, no timer', () async {
@@ -46,7 +68,7 @@ esac'''
     w.writeFile(etc('cachyos-mirrorlist'), '#Server = https://off.example/\nServer = https://c.example/cachyos/repo/\$arch/\$repo\n');
     final r = await w.core().call('mirrors.get');
     expect(r['available'], true);
-    expect(r['timer'], {'enabled': true, 'active': true, 'next': isA<String>(), 'last': isA<String>()});
+    expect(r['timer'], {'name': 'cachyos-rate-mirrors.timer', 'enabled': true, 'active': true, 'next': isA<String>(), 'last': isA<String>()});
     final lists = (r['lists'] as List).cast<Map>();
     expect(lists[0], allOf(containsPair('servers', 2), containsPair('top', ['a.example', 'b.example']), containsPair('byTool', true)));
     expect(DateTime.parse(lists[0]['ranked'] as String).toUtc(), DateTime.utc(2026, 11, 17, 22, 53, 15));
@@ -101,6 +123,63 @@ esac'''
       expect(File(etc(f)).readAsStringSync(), 'old $f\n');
       expect(File(etc('$f-backup')).readAsStringSync(), 'new $f\n');
     }
+  });
+
+  test('Arch without CachyOS: plain rate-mirrors ranks the Arch list, keeping the old one as the backup', () async {
+    plainTools();
+    w.fake('rate-mirrors', r'''[ "$RATE_MIRRORS_ALLOW_ROOT" = true ] || exit 9
+[ "$3" = arch ] || exit 8
+printf '# FINISHED AT: 2026-11-26 10:00:00.1 +01:00\nServer = https://fast.example/$repo/os/$arch\n' > "$2"''');
+    w.writeFile(etc('mirrorlist'), 'Server = https://old.example/\$repo/os/\$arch\n');
+    final core = w.core();
+    final before = await core.call('mirrors.get');
+    expect(before['method'], 'rate-mirrors');
+    expect(before['lists'], hasLength(1));
+    expect(before['timer'], allOf(containsPair('name', 'maprisma-rate-mirrors.timer'), containsPair('enabled', false)));
+    await core.call('mirrors.rank');
+    final run = await follow(core);
+    expect(run['outcome'], 'done', reason: '${run['lines']}');
+    expect(File(etc('mirrorlist')).readAsStringSync(), contains('fast.example'));
+    expect(File(etc('mirrorlist-backup')).readAsStringSync(), contains('old.example'));
+    final after = await core.call('mirrors.get');
+    expect(after['backups'], true);
+    expect(((after['lists'] as List).first as Map)['top'], ['fast.example']);
+    // restore swaps only the Arch list
+    await core.call('mirrors.restore');
+    expect(File(etc('mirrorlist')).readAsStringSync(), contains('old.example'));
+  });
+
+  test('plain rate-mirrors: switching the timer on writes our service, timer and script, then enables it', () async {
+    plainTools();
+    w.fake('rate-mirrors', 'exit 0');
+    await w.core().call('mirrors.set_timer', {'on': true});
+    final unit = p.join(w.root, 'etc/systemd/system');
+    expect(File(p.join(unit, 'maprisma-rate-mirrors.timer')).readAsStringSync(), contains('OnCalendar=*-*-01,11,21'));
+    expect(File(p.join(unit, 'maprisma-rate-mirrors.service')).readAsStringSync(),
+        contains('ExecStart=${p.join(w.root, 'usr/local/lib/maprisma-rate-mirrors.sh')} ${etc('')}'.replaceFirst(RegExp(r'/$'), '')));
+    expect(File(p.join(w.root, 'usr/local/lib/maprisma-rate-mirrors.sh')).readAsStringSync(), startsWith('#!/bin/sh\nset -e'));
+    expect(File(p.join(w.home, 'systemctl-calls')).readAsStringSync(), 'daemon-reload\nenable --now maprisma-rate-mirrors.timer\n');
+  });
+
+  test('Arch with only reflector: it sorts by speed and its own timer is used', () async {
+    plainTools();
+    w.fake('reflector', r'''for a; do last="$a"; done
+printf 'Server = https://refl.example/$repo/os/$arch\n' > "$last"''');
+    w.writeFile(etc('mirrorlist'), 'Server = https://old.example/\$repo/os/\$arch\n');
+    final core = w.core();
+    expect((await core.call('mirrors.get'))['method'], 'reflector');
+    await core.call('mirrors.rank');
+    expect((await follow(core))['outcome'], 'done');
+    expect(File(etc('mirrorlist')).readAsStringSync(), contains('refl.example'));
+    await core.call('mirrors.set_timer', {'on': false});
+    expect(File(p.join(w.home, 'systemctl-calls')).readAsStringSync(), 'disable --now reflector.timer\n');
+  });
+
+  test('no pacman: nothing to rank (not an Arch-based system)', () async {
+    w.fake('rate-mirrors', 'exit 0');
+    final r = await w.core().call('mirrors.get');
+    expect(r['available'], false);
+    expect(r['pacman'], false);
   });
 
   test('settings: the sidebar order is checked, saved and reset', () async {

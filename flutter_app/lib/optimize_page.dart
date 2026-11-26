@@ -8,8 +8,9 @@ import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 
 /// Optimize: things that make the PC faster, one card per group.
-/// - Mirrors: CachyOS's `cachyos-rate-mirrors` (core `mirrors.*`): rank now (polkit asks for the
-///   password), the automatic ranking (its timer), the lists, and the lists before the last ranking.
+/// - Mirrors (core `mirrors.*`) on any Arch-based system: CachyOS's `cachyos-rate-mirrors`, else
+///   plain `rate-mirrors`, else `reflector`: rank now (polkit asks for the password), the
+///   automatic ranking (a timer), the lists, and the lists before the last ranking.
 /// - Network (`tune_net.*`): the DNS servers with a speed test, TCP BBR, Wi-Fi power saving.
 /// - Bluetooth (`tune_bt.*`): BlueZ's main.conf options (fast connect, battery levels, …).
 class OptimizePage extends StatefulWidget {
@@ -135,7 +136,7 @@ class OptimizePageState extends State<OptimizePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(tr('Use the previous mirror lists?')),
-        content: Text(tr('The Arch and CachyOS mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.')),
+        content: Text(tr('The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Cancel'))),
           FilledButton(key: const ValueKey('mirrors-restore-ok'), onPressed: () => Navigator.pop(context, true), child: Text(tr('Restore'))),
@@ -161,7 +162,11 @@ class OptimizePageState extends State<OptimizePage> {
     return SettingsSection(
       key: const ValueKey('optimize-mirrors'),
       title: tr('Mirrors'),
-      note: tr('CachyOS tests the Arch and CachyOS download mirrors (rate-mirrors) and puts the fastest first in /etc/pacman.d. Updates come in faster.'),
+      note: switch (m['method']) {
+        'cachyos' => tr('CachyOS tests the Arch and CachyOS download mirrors (rate-mirrors) and puts the fastest first in /etc/pacman.d. Updates come in faster.'),
+        'reflector' => tr('reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.'),
+        _ => tr('rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.'),
+      },
       children: [
         SettingsItem(
           key: const ValueKey('mirrors-rank'),
@@ -184,8 +189,8 @@ class OptimizePageState extends State<OptimizePage> {
             key: const ValueKey('mirrors-timer'),
             title: tr('Rank automatically'),
             description: timer['enabled'] == true
-                ? trf('About every ten days (cachyos-rate-mirrors.timer). Next: {0}', [when(timer['next'])])
-                : tr('About every ten days (cachyos-rate-mirrors.timer). Off now.'),
+                ? trf('Runs by itself with {0}. Next: {1}', [timer['name'], when(timer['next'])])
+                : trf('Runs by itself with {0}. Off now.', [timer['name']]),
             value: timer['enabled'] == true,
             onChanged: busy ? null : (v) => _call('mirrors.set_timer', {'on': v}),
           ),
@@ -367,8 +372,11 @@ class OptimizePageState extends State<OptimizePage> {
           title: tr('Mirrors'),
           children: [
             SettingsItem(
-              title: tr('Rank mirrors needs CachyOS'),
-              description: tr('cachyos-rate-mirrors and rate-mirrors were not found. On CachyOS they come with the package cachyos-rate-mirrors.'),
+              key: const ValueKey('mirrors-missing'),
+              title: m['pacman'] == false ? tr('Rank mirrors is for Arch-based systems') : tr('Rank mirrors needs rate-mirrors or reflector'),
+              description: m['pacman'] == false
+                  ? tr('This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.')
+                  : tr('Install one of them, for example: sudo pacman -S rate-mirrors (both are in the Arch extra repository).'),
             ),
           ],
         ),
