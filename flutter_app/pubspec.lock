@@ -252,7 +252,7 @@ packages:
       path: "../packages/maprisma_manager_core"
       relative: true
     source: path
-    version: "0.8.2"
+    version: "0.9.0"
   maprisma_ui:
     dependency: "direct main"
     description:

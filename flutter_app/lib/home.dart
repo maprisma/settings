@@ -12,6 +12,7 @@ import 'core_call.dart';
 import 'jobs_model.dart';
 import 'desktop_page.dart';
 import 'notifications_page.dart';
+import 'optimize_page.dart';
 import 'pages.dart';
 import 'power_page.dart';
 import 'settings_page.dart';
@@ -23,12 +24,14 @@ import 'voice_page.dart';
 import 'window.dart';
 
 /// The window's pages, in the sidebar's order.
-enum Section { systemApps, apps, network, bluetooth, appearance, theme, bar, displays, sound, notifications, ai, voice, power, input, applications, time, about, settings }
+enum Section { systemApps, apps, network, bluetooth, appearance, theme, bar, displays, sound, notifications, ai, voice, power, optimize, input, applications, time, about, settings }
 
 /// The window as COSMIC Settings lays it out: a sidebar of pages left (icon and name, the open
 /// one highlighted), the page right. Below [condensedBelow] the sidebar hides behind a toggle
 /// that shows it over the whole window until a page is chosen. Ctrl+1…9 open a page, Ctrl+B the
-/// bar, Ctrl+, the settings, Ctrl+F the list's filter.
+/// bar, Ctrl+, the settings, Ctrl+F the list's filter. The sidebar's entries and separators are
+/// dragged into the order the user likes (settings `sidebar_order`; right-click adds or removes
+/// a separator or puts the default order back).
 class ManagerHome extends StatefulWidget {
   const ManagerHome({
     super.key,
@@ -74,7 +77,74 @@ class ManagerHomeState extends State<ManagerHome> {
   /// The desktop as apps.list told it ('other': no bar of ours, so no Bar page).
   String desktop = 'cosmic';
 
-  List<Section> get sections => [for (final s in Section.values) if (s != Section.bar || desktop != 'other') s];
+  /// The sidebar's order: page names and [separator]s ([defaultOrder] until the saved one loads).
+  List<String> order = defaultOrder();
+
+  /// A separator line in [order].
+  static const separator = '-';
+
+  /// Enum order, one separator above Settings (as COSMIC Settings has it).
+  static List<String> defaultOrder() => [for (final s in Section.values) if (s != Section.settings) s.name, separator, Section.settings.name];
+
+  /// A saved order made fit: unknown names and doubled separators go, pages added since it was
+  /// saved come in after the page they follow in [defaultOrder].
+  static List<String> mergeOrder(List? saved) {
+    if (saved == null || saved.isEmpty) return defaultOrder();
+    final known = {for (final s in Section.values) s.name};
+    final out = <String>[];
+    for (final v in saved) {
+      if (v == separator) {
+        if (out.isNotEmpty && out.last == separator) continue;
+        out.add(separator);
+      } else if (v is String && known.contains(v) && !out.contains(v)) {
+        out.add(v);
+      }
+    }
+    for (final (i, s) in Section.values.indexed) {
+      if (out.contains(s.name)) continue;
+      final before = i == 0 ? -1 : out.indexOf(Section.values[i - 1].name);
+      out.insert(before + 1, s.name);
+    }
+    return out;
+  }
+
+  bool _shown(String entry) => entry == separator || (entry != Section.bar.name || desktop != 'other');
+
+  /// The sidebar's entries on this desktop (no Bar without a bar of ours).
+  List<String> get entries => [for (final e in order) if (_shown(e)) e];
+
+  List<Section> get sections => [for (final e in entries) if (e != separator) Section.values.byName(e)];
+
+  /// The sidebar was reordered to [shown]: hidden pages keep their place, the order is saved.
+  void reorder(List<String> shown) {
+    final next = List.of(shown);
+    for (final (i, e) in order.indexed) {
+      if (!_shown(e)) next.insert(min(i, next.length), e);
+    }
+    setState(() => order = next);
+    unawaited(_saveOrder(next));
+  }
+
+  /// The default order back (the saved one is removed).
+  void resetOrder() {
+    setState(() => order = defaultOrder());
+    unawaited(_saveOrder(null));
+  }
+
+  Future<void> _saveOrder(List<String>? value) async {
+    try {
+      await widget.core('settings.set', {'key': 'sidebar_order', 'value': value});
+    } catch (_) {
+      // Not saved: the order holds until the window closes.
+    }
+  }
+
+  Future<void> _loadOrder() async {
+    try {
+      final r = await widget.core('settings.get');
+      if (mounted && r['sidebar_order'] is List) setState(() => order = mergeOrder(r['sidebar_order'] as List));
+    } catch (_) {}
+  }
 
   static IconData icon(Section s, {bool on = false}) => switch (s) {
     Section.systemApps => on ? Icons.apps : Icons.apps_outlined,
@@ -90,6 +160,7 @@ class ManagerHomeState extends State<ManagerHome> {
     Section.ai => on ? Icons.auto_awesome : Icons.auto_awesome_outlined,
     Section.voice => on ? Icons.mic : Icons.mic_outlined,
     Section.power => on ? Icons.power_settings_new : Icons.power_settings_new_outlined,
+    Section.optimize => on ? Icons.speed : Icons.speed_outlined,
     Section.input => on ? Icons.keyboard : Icons.keyboard_outlined,
     Section.applications => on ? Icons.grid_view : Icons.grid_view_outlined,
     Section.time => on ? Icons.schedule : Icons.schedule_outlined,
@@ -111,6 +182,7 @@ class ManagerHomeState extends State<ManagerHome> {
     Section.ai => tr('AI'),
     Section.voice => tr('Voice'),
     Section.power => tr('Power'),
+    Section.optimize => tr('Optimize'),
     Section.input => tr('Input devices'),
     Section.applications => tr('Applications'),
     Section.time => tr('Time & Language'),
@@ -169,6 +241,7 @@ class ManagerHomeState extends State<ManagerHome> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_keys);
+    unawaited(_loadOrder());
     final first = sectionNamed(widget.page);
     if (first != null) section = first;
     AppWindow.onOpen((words) {
@@ -219,6 +292,7 @@ class ManagerHomeState extends State<ManagerHome> {
     Section.systemApps || Section.apps => const SizedBox.shrink(),
     Section.bar => BarEditorPage(key: const ValueKey('bar-page'), core: widget.core, apps: appsKey.currentState?.apps ?? const [], embedded: true, onLeave: () => open(Section.apps)),
     Section.power => PowerPage(key: const ValueKey('power-page'), core: widget.core),
+    Section.optimize => OptimizePage(key: const ValueKey('optimize-page'), core: widget.core),
     Section.appearance => AppearancePage(
       key: const ValueKey('appearance-page'),
       core: widget.core,
@@ -307,7 +381,7 @@ class ManagerHomeState extends State<ManagerHome> {
                 child: Container(
                   color: Theme.of(context).colorScheme.surface,
                   alignment: Alignment.topLeft,
-                  child: Sidebar(sections: sections, selected: section, onSelected: open, full: true),
+                  child: Sidebar(entries: entries, selected: section, onSelected: open, onReorder: reorder, onReset: resetOrder, full: true),
                 ),
               ),
             ),
@@ -319,7 +393,7 @@ class ManagerHomeState extends State<ManagerHome> {
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Sidebar(sections: sections, selected: section, onSelected: open),
+            Sidebar(entries: entries, selected: section, onSelected: open, onReorder: reorder, onReset: resetOrder),
             Expanded(child: pages),
           ],
         ),
@@ -353,21 +427,92 @@ class ManagerHomeState extends State<ManagerHome> {
 
 /// COSMIC Settings' navigation: a rounded panel of entries, icon and name, the open one on a
 /// light pill in the accent's colour. [full]: the condensed window's, as wide as the window.
+/// The entries and the separator lines ([ManagerHomeState.separator]) are dragged into another
+/// order ([onReorder] gets the new list); right-click adds a separator below an entry, removes
+/// one, or puts the default order back ([onReset]).
 class Sidebar extends StatelessWidget {
-  const Sidebar({super.key, required this.sections, required this.selected, required this.onSelected, this.full = false});
-  final List<Section> sections;
+  const Sidebar({super.key, required this.entries, required this.selected, required this.onSelected, this.onReorder, this.onReset, this.full = false});
+  final List<String> entries;
   final Section selected;
   final ValueChanged<Section> onSelected;
+  final ValueChanged<List<String>>? onReorder;
+  final VoidCallback? onReset;
   final bool full;
 
   /// COSMIC's nav_bar: at most 280 wide, 8 padding, 32 px rows 8 apart, 16 px icons.
   static const width = 240.0, itemHeight = 32.0, gap = 8.0;
+
+  /// A separator's row: a line with room to grab it.
+  static const separatorHeight = 12.0;
+
+  static const _sep = ManagerHomeState.separator;
+
+  /// [entries] with the entry at [from] moved to [to] (its index after the move).
+  static List<String> moved(List<String> entries, int from, int to) {
+    final next = List.of(entries);
+    next.insert(to, next.removeAt(from));
+    return next;
+  }
+
+  Future<void> _menu(BuildContext context, Offset at, int? index) async {
+    final isSep = index != null && entries[index] == _sep;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+      items: [
+        if (isSep) PopupMenuItem(key: const ValueKey('nav-menu-remove'), value: 'remove', child: Text(tr('Remove this separator'))),
+        if (!isSep) PopupMenuItem(key: const ValueKey('nav-menu-add'), value: 'add', child: Text(index == null ? tr('Add a separator') : tr('Add a separator below'))),
+        PopupMenuItem(key: const ValueKey('nav-menu-reset'), value: 'reset', child: Text(tr('Default order'))),
+      ],
+    );
+    switch (choice) {
+      case 'remove':
+        onReorder?.call(List.of(entries)..removeAt(index!));
+      case 'add':
+        onReorder?.call(List.of(entries)..insert(index == null ? entries.length : index + 1, _sep));
+      case 'reset':
+        onReset?.call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final radius = cornerSizes(context);
     final skin = activeSkinStyle(context);
+    final r = min(radius.radius, 16.0);
+    final canMove = onReorder != null;
+    var separators = 0;
+    final keys = [for (final e in entries) e == _sep ? 'sep-${separators++}' : e];
+
+    Widget item(BuildContext context, int i) {
+      final e = entries[i];
+      final Widget row = e == _sep
+          ? Tooltip(
+              message: tr('Drag to move · right-click to remove'),
+              waitDuration: const Duration(milliseconds: 800),
+              child: MouseRegion(
+                cursor: canMove ? SystemMouseCursors.grab : MouseCursor.defer,
+                child: SizedBox(
+                  key: ValueKey('nav-separator-${keys[i].substring(4)}'),
+                  height: separatorHeight,
+                  child: Center(child: Divider(height: 1, thickness: 1, color: scheme.outlineVariant.withValues(alpha: .6))),
+                ),
+              ),
+            )
+          : _Entry(section: Section.values.byName(e), on: e == selected.name, onTap: () => onSelected(Section.values.byName(e)), radius: r);
+      Widget child = Padding(padding: const EdgeInsets.only(bottom: Sidebar.gap), child: row);
+      if (canMove) {
+        child = GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onSecondaryTapUp: (d) => _menu(context, d.globalPosition, i),
+          child: ReorderableDragStartListener(index: i, child: child),
+        );
+      }
+      return KeyedSubtree(key: ValueKey('nav-item-${keys[i]}'), child: child);
+    }
+
     return Container(
       key: const ValueKey('sidebar'),
       width: full ? double.infinity : width,
@@ -379,27 +524,24 @@ class Sidebar extends StatelessWidget {
         border: skin == null ? null : Border.all(color: skin.borderTint.withValues(alpha: 0.48), width: skin.borderWidth),
       ),
       child: FocusTraversalGroup(
-        // The pages scroll in a low window; Settings stays at the bottom.
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  for (final s in sections)
-                    if (s != Section.settings)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Sidebar.gap),
-                        child: _Entry(section: s, on: s == selected, onTap: () => onSelected(s), radius: min(radius.radius, 16)),
-                      ),
-                ],
-              ),
-            ),
-            if (sections.contains(Section.settings)) ...[
-              Divider(height: 9, color: scheme.outlineVariant.withValues(alpha: .6)),
-              _Entry(section: Section.settings, on: selected == Section.settings, onTap: () => onSelected(Section.settings), radius: min(radius.radius, 16)),
-            ],
-          ],
+        // The pages scroll in a low window; a right-click below the entries adds a separator at the end.
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onSecondaryTapUp: canMove ? (d) => _menu(context, d.globalPosition, null) : null,
+          child: !canMove
+              ? ListView(children: [for (var i = 0; i < entries.length; i++) item(context, i)])
+              : ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  itemCount: entries.length,
+                  itemBuilder: item,
+                  onReorderItem: (from, to) => onReorder!(moved(entries, from, to)),
+                  proxyDecorator: (child, _, _) => Material(
+                    color: scheme.surfaceContainerHighest,
+                    elevation: 3,
+                    borderRadius: BorderRadius.circular(r),
+                    child: child,
+                  ),
+                ),
         ),
       ),
     );

@@ -6,10 +6,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/core_call.dart';
+import 'package:maprisma_manager/home.dart';
 import 'package:maprisma_manager/jobs_model.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
 import 'package:path/path.dart' as p;
@@ -72,9 +74,102 @@ esac
       await tester.tap(find.byKey(const ValueKey('nav-toggle')));
       await settle(tester, 2);
     }
-    await tester.tap(find.byKey(ValueKey('nav-$page')));
+    // The sidebar scrolls (all entries can be reordered, Settings too): down to the entry first.
+    final entry = find.byKey(ValueKey('nav-$page'));
+    if (entry.evaluate().isEmpty) {
+      // (a drag on the entries would move them: scroll the list itself)
+      final list = tester.state<ScrollableState>(find.descendant(of: find.byKey(const ValueKey('sidebar')), matching: find.byType(Scrollable)).first);
+      list.position.jumpTo(list.position.maxScrollExtent);
+      await tester.pump();
+    }
+    await tester.tap(entry);
     await settle(tester);
   }
+
+  testWidgets('the sidebar: entries and the separator are dragged into another order, saved, and reset', (tester) async {
+    await open(tester, 'Hyprland', 900);
+    List<String> saved() => ((jsonDecode(File(w.paths.settingsFile).readAsStringSync()) as Map)['sidebar_order'] as List?)?.cast<String>() ?? const [];
+    double y(String key) => tester.getCenter(find.byKey(ValueKey(key))).dy;
+    // Network below Bluetooth: drag it down one row (32 + 8).
+    expect(y('nav-network'), lessThan(y('nav-bluetooth')));
+    final drag = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('nav-network'))));
+    await tester.pump(const Duration(milliseconds: 50));
+    for (var i = 0; i < 10; i++) {
+      await drag.moveBy(const Offset(0, 6));
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await drag.up();
+    await settle(tester);
+    expect(y('nav-network'), greaterThan(y('nav-bluetooth')));
+    expect(saved().indexOf('network'), greaterThan(saved().indexOf('bluetooth')));
+    // Ctrl+2 follows the order: Bluetooth is the third page now (Apps, Maprisma Apps, Bluetooth).
+    expect(saved().take(3), ['systemApps', 'apps', 'bluetooth']);
+
+    // A separator below Apps through the right-click menu, then it goes again.
+    await tester.tap(find.byKey(const ValueKey('nav-systemApps')), buttons: kSecondaryButton);
+    await settle(tester, 2);
+    await tester.tap(find.byKey(const ValueKey('nav-menu-add')));
+    await settle(tester);
+    expect(saved().take(3), ['systemApps', '-', 'apps']);
+    expect(find.byKey(const ValueKey('nav-separator-0')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('nav-separator-0')), buttons: kSecondaryButton);
+    await settle(tester, 2);
+    await tester.tap(find.byKey(const ValueKey('nav-menu-remove')));
+    await settle(tester);
+    expect(saved().take(2), ['systemApps', 'apps']);
+
+    // Default order: the saved one is removed.
+    await tester.tap(find.byKey(const ValueKey('nav-apps')), buttons: kSecondaryButton);
+    await settle(tester, 2);
+    await tester.tap(find.byKey(const ValueKey('nav-menu-reset')));
+    await settle(tester);
+    expect(saved(), isEmpty);
+    expect(y('nav-network'), lessThan(y('nav-bluetooth')));
+  });
+
+  testWidgets('Optimize: the Mirrors, Network and Bluetooth cards', (tester) async {
+    w.fake('cachyos-rate-mirrors', 'exit 0');
+    w.fake('rate-mirrors', 'exit 0');
+    w.fake('pkexec', r'"$@"');
+    w.fake('bluetoothctl', 'exit 0');
+    w.fake('dig', 'echo ";; Query time: 12 msec"');
+    w.fake('systemctl', r"""case "$1" in show) printf 'UnitFileState=enabled\nActiveState=active\nNextElapseUSecRealtime=@1795819962\nLastTriggerUSec=@1794955968\n' ;; esac""");
+    w.fake('nmcli', r"""case "$*" in
+  "-t -f NAME,UUID,TYPE,DEVICE connection show --active") printf 'Home:u1:802-11-wireless:wlan0\n' ;;
+  "-t -g ipv4.ignore-auto-dns,ipv4.dns,802-11-wireless.powersave connection show u1") printf 'no\n\n0\n' ;;
+  *"device show wlan0") printf 'IP4.DNS[1]:192.168.1.1\n' ;;
+esac""");
+    w.writeFile(p.join(w.root, 'etc/pacman.d/mirrorlist'), '# FINISHED AT: 2026-11-17 23:53:15.954687384 +01:00\nServer = https://a.example/\$repo/os/\$arch\n');
+    w.writeFile(p.join(w.root, 'etc/pacman.d/cachyos-mirrorlist'), 'Server = https://c.example/\$arch/\$repo\n');
+    w.writeFile(p.join(w.root, 'etc/bluetooth/main.conf'), '[General]\n#FastConnectable = false\n[Policy]\n#AutoEnable=true\n');
+    w.writeFile(p.join(w.proc, 'sys/net/ipv4/tcp_congestion_control'), 'cubic\n');
+    w.writeFile(p.join(w.proc, 'sys/net/ipv4/tcp_available_congestion_control'), 'reno cubic bbr\n');
+    w.writeFile(p.join(w.proc, 'sys/net/core/default_qdisc'), 'fq_codel\n');
+    await open(tester, 'Hyprland', 900);
+    await nav(tester, 'optimize');
+    for (final k in ['optimize-mirrors', 'optimize-network', 'mirrors-rank-now', 'mirrors-list-arch', 'net-dns', 'net-bbr', 'net-powersave']) {
+      expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
+    }
+    await tester.ensureVisible(find.byKey(const ValueKey('net-dns-test-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('net-dns-test-button')));
+    // eight dig runs: under a loaded test run they take a while
+    for (var i = 0; i < 40 && find.textContaining('Google 12 ms').evaluate().isEmpty; i++) {
+      await settle(tester, 1);
+    }
+    expect(find.textContaining('Google 12 ms'), findsOneWidget);
+    if (shotsDir != null) await saveShot(tester, 'optimize-900');
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('bt-FastConnectable')), 200, scrollable: find.descendant(of: find.byKey(const ValueKey('optimize-page')), matching: find.byType(Scrollable)).first);
+    expect(find.byKey(const ValueKey('optimize-bluetooth')), findsOneWidget);
+    if (shotsDir != null) await saveShot(tester, 'optimize-bluetooth-900');
+  });
+
+  test('a saved order: unknown pages go, new pages come in after the page they follow', () {
+    final merged = ManagerHomeState.mergeOrder(['settings', '-', '-', 'gone', 'power', 'systemApps']);
+    expect(merged.take(4), ['settings', '-', 'power', 'optimize']);
+    expect(merged.where((e) => e != '-').toSet(), {for (final s in Section.values) s.name});
+    expect(ManagerHomeState.mergeOrder(null), ManagerHomeState.defaultOrder());
+  });
 
   for (final width in [900.0, 600.0]) {
     testWidgets('Hyprland at ${width.round()} px: the sidebar, the Power page writes shell.json and sets the profile', (tester) async {

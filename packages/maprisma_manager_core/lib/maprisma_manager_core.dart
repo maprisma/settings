@@ -46,6 +46,8 @@ export 'src/native.dart';
 export 'src/network.dart';
 export 'src/notifications.dart';
 export 'src/paths.dart';
+export 'src/mirrors.dart';
+export 'src/tuning.dart';
 export 'src/power.dart';
 export 'src/procs.dart';
 export 'src/protocol.dart';

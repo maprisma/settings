@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/theme.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
+import 'sidebar_scroll.dart';
 
 void main() {
   late Directory home;
@@ -112,6 +113,7 @@ void main() {
       expect(find.text('Screenshot saved'), findsNothing);
       expect(files(), hasLength(1));
       // Switched off on the Settings page.
+      await showNavEntry(tester, 'nav-settings');
       await tester.tap(find.byKey(const ValueKey('nav-settings')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('F12 saves a screenshot'));
@@ -180,6 +182,7 @@ void main() {
       await pump(tester, look: {'rounding': 10});
       Corners sizes() => Theme.of(tester.element(find.byType(Scaffold).first)).extension<Corners>()!;
       expect(sizes().radius, 10); // like windows
+      await showNavEntry(tester, 'nav-settings');
       await tester.tap(find.byKey(const ValueKey('nav-settings')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('settings-corners')));

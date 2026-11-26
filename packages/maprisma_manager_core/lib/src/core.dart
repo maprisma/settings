@@ -24,6 +24,8 @@ import 'notifications.dart';
 import 'native.dart';
 import 'paths.dart';
 import 'power.dart';
+import 'mirrors.dart';
+import 'tuning.dart';
 import 'procs.dart';
 import 'protocol.dart';
 import 'removal.dart';
@@ -36,7 +38,7 @@ import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.8.2';
+const coreVersion = '0.9.0';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -98,6 +100,8 @@ final class CoreService {
           'window_size': windowSize(settings.values['window_size']),
           // Hyprland: where the user left the window ([x, y]), null when missing or broken.
           'window_position': windowPosition(settings.values['window_position']),
+          // The sidebar's order as the user dragged it (page names and "-" separators), null: the default.
+          'sidebar_order': sidebarOrder(settings.values['sidebar_order']),
         };
       },
       'settings.language': (params) async {
@@ -124,6 +128,8 @@ final class CoreService {
           'window_size' => windowSize(value) != null,
           // Hyprland: the window's place ([x, y]), saved when it moved.
           'window_position' => windowPosition(value) != null,
+          // The sidebar's order (page names, "-" a separator); null puts the default back.
+          'sidebar_order' => value == null || sidebarOrder(value) != null,
           _ => false,
         };
         if (!ok) throw RouteError('bad_params', 'key, value');
@@ -222,6 +228,19 @@ final class CoreService {
       'power.set_idle': (params) => power.setIdle(params),
       'power.set_profile': (params) => power.setProfile(params),
       'power.open_native': (_) => power.openNative(),
+      // Optimize › Rank mirrors (mirrors.dart): CachyOS's cachyos-rate-mirrors and its timer.
+      'mirrors.get': (_) => mirrors.get(),
+      'mirrors.rank': (_) => mirrors.rank(),
+      'mirrors.set_timer': (params) => mirrors.setTimer(params),
+      'mirrors.restore': (_) => mirrors.restore(),
+      // Optimize › Network and Bluetooth (tuning.dart).
+      'tune_net.get': (_) => tuneNet.get(),
+      'tune_net.test_dns': (_) => tuneNet.testDns(),
+      'tune_net.set_dns': (params) => tuneNet.setDns(params),
+      'tune_net.set_powersave': (params) => tuneNet.setPowersave(params),
+      'tune_net.set_bbr': (params) => tuneNet.setBbr(params),
+      'tune_bt.get': (_) => tuneBt.get(),
+      'tune_bt.set': (params) => tuneBt.set(params),
       // COSMIC's and KDE's own settings app for a page (native.dart).
       'native.get': (params) async => native.get(params),
       'native.open': (params) => native.open(params),
@@ -383,6 +402,13 @@ final class CoreService {
   /// The Power page (power.*).
   late final PowerService power = PowerService(ctx, jobs.startDetached);
 
+  /// The Optimize page's Rank mirrors (mirrors.*).
+  late final MirrorsService mirrors = MirrorsService(ctx, jobs.startDetached);
+
+  /// The Optimize page's Network and Bluetooth cards (tune_net.*, tune_bt.*).
+  late final NetTuneService tuneNet = NetTuneService(ctx);
+  late final BtTuneService tuneBt = BtTuneService(ctx);
+
   /// Bar icon changes (icons.*).
   late final IconService icons = IconService(ctx, jobs);
 
@@ -409,7 +435,7 @@ final class CoreService {
   /// One setting into settings.json; the others stay (written whole, then renamed into place).
   void _saveSetting(String key, Object? value) {
     final settings = Map<String, dynamic>.of(Settings.load(ctx.paths).values);
-    if (key == 'skin' && value == 'native') {
+    if ((key == 'skin' && value == 'native') || (key == 'sidebar_order' && value == null)) {
       settings.remove(key);
     } else {
       settings[key] = value;
@@ -545,6 +571,19 @@ String _firstLine(String s) => s.trim().split('\n').firstWhere((l) => l.trim().i
 
 /// A saved window size: [width, height], whole numbers 100…20000; else null.
 /// A window place `[x, y]` (Hyprland's layout pixels, may be negative), or null.
+/// The sidebar's order: page names (letters only, at most 64) and "-" for a separator, null when
+/// it isn't such a list. Unknown names are kept: the window drops them (a page of a newer version).
+List<String>? sidebarOrder(Object? value) {
+  if (value is! List || value.isEmpty || value.length > 64) return null;
+  final names = <String>[];
+  for (final v in value) {
+    if (v is! String || !(v == '-' || RegExp(r'^[A-Za-z]{1,32}$').hasMatch(v))) return null;
+    if (v != '-' && names.contains(v)) return null;
+    names.add(v);
+  }
+  return names;
+}
+
 List<int>? windowPosition(Object? value) => value is List &&
         value.length == 2 &&
         value.every((v) => v is int && v.abs() <= 100000)

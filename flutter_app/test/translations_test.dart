@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
+import 'sidebar_scroll.dart';
 
 void main() {
   tearDown(() => configureLanguage('en'));
@@ -43,6 +44,7 @@ void main() {
     }
     await tester.pumpWidget(ManagerApp(core: core, checkOnStart: false));
     await tester.pumpAndSettle();
+    await showNavEntry(tester, 'nav-settings');
     await tester.tap(find.byKey(const ValueKey('nav-settings')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('settings-language')));

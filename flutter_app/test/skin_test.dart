@@ -5,6 +5,7 @@ import 'package:maprisma_manager/skin.dart';
 import 'package:maprisma_manager/theme.dart';
 import 'package:maprisma_ui/window_style.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
+import 'sidebar_scroll.dart';
 
 void main() {
   tearDown(() => configureLanguage('en'));
@@ -145,6 +146,8 @@ void main() {
 
       ThemeData currentTheme() => Theme.of(tester.element(find.byType(Scaffold).first));
       expect(currentTheme().colorScheme.surface, const Color(0xffeff1f5));
+
+      await showNavEntry(tester, 'nav-settings');
 
       await tester.tap(find.byKey(const ValueKey('nav-settings')));
       await tester.pumpAndSettle();
