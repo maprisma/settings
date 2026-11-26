@@ -13,6 +13,7 @@ import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/core_call.dart';
 import 'package:maprisma_manager/flip_picture.dart';
 import 'package:maprisma_manager/jobs_model.dart';
+import 'package:maprisma_manager/network_page.dart' show formatConnectionsMarkdown;
 import 'package:maprisma_ui/settings.dart';
 import 'package:maprisma_manager/theme_page.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
@@ -33,6 +34,7 @@ void main() {
     fakePactl(w);
     fakeHypr(w);
     fakeNmcli(w);
+    fakeNetTools(w);
     fakeBluetoothctl(w);
     fakeSystem(w);
     w.writeFile(p.join(w.root, 'etc/os-release'), 'PRETTY_NAME="CachyOS Linux"\n');
@@ -256,6 +258,179 @@ void main() {
     expect(find.byKey(const ValueKey('wifi-password')), findsNothing);
     expect(find.text('Connected to Cafe'), findsOneWidget);
     expect(log('nmcli.log'), contains('passwd-file: 802-11-wireless-security.psk:cafe-secret-8'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hyprland: Network LAN Devices tab shows connection summary, filters, expands and copies IP', (tester) async {
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    // Default tab is Wi-Fi & Connections.
+    expect(find.byKey(const ValueKey('wifi-on')), findsOneWidget);
+
+    // Switch to LAN Devices tab.
+    await tester.tap(find.byKey(const ValueKey('network-tab-devices')));
+    await settle(tester);
+    expect(find.text('FRITZ!Box 7690'), findsOneWidget);
+    expect(find.textContaining('6 GHz'), findsOneWidget);
+    expect(find.textContaining('90 % (-55 dBm)'), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-192.168.178.1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-192.168.178.50')), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-192.168.178.80')), findsOneWidget);
+    await shot(tester, 'page-network-devices');
+
+    // Online only hides the STALE device (192.168.178.80).
+    await tester.tap(find.byKey(const ValueKey('devices-online-only')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('device-192.168.178.80')), findsNothing);
+    expect(find.byKey(const ValueKey('device-192.168.178.50')), findsOneWidget);
+
+    // Search for a non-existent device shows empty message exactly once (U1).
+    await tester.enterText(find.byKey(const ValueKey('devices-search')), 'no-such-device-xyz');
+    await tester.pump();
+    expect(find.text('No devices match the current filter.'), findsOneWidget);
+
+    // Search narrows to Hue/Signify.
+    await tester.enterText(find.byKey(const ValueKey('devices-search')), 'Hue');
+    await tester.pump();
+    expect(find.byKey(const ValueKey('device-192.168.178.50')), findsOneWidget);
+    expect(find.byKey(const ValueKey('device-192.168.178.1')), findsNothing);
+
+    // Tap expands device details showing MAC & state.
+    await tester.tap(find.byKey(const ValueKey('device-192.168.178.50')));
+    await tester.pump();
+    expect(find.textContaining('00:17:88:11:22:33'), findsOneWidget);
+
+    // Copy IP triggers snackbar.
+    await tester.tap(find.byKey(const ValueKey('device-copy-192.168.178.50')));
+    await settle(tester, 2);
+    expect(find.text('Copied 192.168.178.50'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hyprland: Network Monitor tab filters connections, switches By app / Interfaces, pauses and copies table', (tester) async {
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+
+    await tester.tap(find.byKey(const ValueKey('network-tab-monitor')));
+    await settle(tester);
+
+    expect(find.text('3 active · 2 listening · 2 external · 5 total'), findsOneWidget);
+    expect(find.text('Showing 5 of 5 connections'), findsOneWidget);
+    await shot(tester, 'page-network-monitor');
+
+    // Protocol filter: UDP (2 connections: systemd-resolved DNS + firefox QUIC).
+    await tester.tap(find.byKey(const ValueKey('monitor-proto-udp')));
+    await tester.pump();
+    expect(find.text('Showing 2 of 5 connections'), findsOneWidget);
+    expect(find.text('QUIC'), findsOneWidget);
+
+    // Clear filters brings all 5 back.
+    await tester.tap(find.byKey(const ValueKey('monitor-clear-filters')));
+    await tester.pump();
+    expect(find.text('Showing 5 of 5 connections'), findsOneWidget);
+
+    // Scope filter: Listening (U3: sshd LISTEN + systemd-resolved wildcard UDP UNCONN = 2).
+    await tester.tap(find.byKey(const ValueKey('monitor-scope-listening')));
+    await tester.pump();
+    expect(find.text('Showing 2 of 5 connections'), findsOneWidget);
+    expect(find.text('sshd'), findsOneWidget);
+
+    // Scope filter: Local (S1: only real loopback 127.0.0.53, NOT 0.0.0.0 wildcard sshd!).
+    await tester.tap(find.byKey(const ValueKey('monitor-scope-loopback')));
+    await tester.pump();
+    expect(find.text('Showing 1 of 5 connections'), findsOneWidget);
+    expect(find.text('systemd-resolved'), findsOneWidget);
+    expect(find.text('sshd'), findsNothing);
+
+    // Clear and search for omamail.
+    await tester.tap(find.byKey(const ValueKey('monitor-clear-filters')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const ValueKey('monitor-search')), 'omamail');
+    await tester.pump();
+    expect(find.text('Showing 1 of 5 connections'), findsOneWidget);
+    expect(find.text('IMAPS'), findsOneWidget);
+
+    // Pause / Resume toggle.
+    await tester.tap(find.byKey(const ValueKey('monitor-pause')));
+    await tester.pump();
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.text('Resume'), findsOneWidget);
+
+    // Copy Markdown table.
+    await tester.tap(find.byKey(const ValueKey('monitor-copy-table')));
+    await settle(tester, 2);
+    expect(find.text('Copied table to clipboard'), findsOneWidget);
+
+    // Clear search, switch to By app, tap firefox -> exact app filter chip + 2 connections (B2).
+    await tester.tap(find.byKey(const ValueKey('monitor-clear-filters')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('monitor-view-apps')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('monitor-app-firefox')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('monitor-app-firefox')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('monitor-app-filter-chip')), findsOneWidget);
+    expect(find.text('App: firefox'), findsOneWidget);
+    expect(find.text('Showing 2 of 5 connections'), findsOneWidget);
+
+    // Switch to Interfaces sub-view and verify interface + DNS servers.
+    await tester.tap(find.byKey(const ValueKey('monitor-view-interfaces')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('monitor-iface-wlan0')), findsOneWidget);
+    expect(find.text('DNS servers'), findsOneWidget);
+    expect(find.byKey(const ValueKey('monitor-dns-192.168.178.1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('monitor-dns-1.1.1.1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Network Monitor: duplicate udp 0.0.0.0:5353 sockets render without duplicate key crash & exact system filter works', (tester) async {
+    w.writeFile(
+      p.join(w.home, 'ss.out'),
+      'Netid State     Recv-Q Send-Q Local Address:Port            Peer Address:Port Process\n'
+      'udp   UNCONN    0      0      0.0.0.0:5353                  0.0.0.0:*         users:(("avahi-daemon",pid=501,fd=12))\n'
+      'udp   UNCONN    0      0      0.0.0.0:5353                  0.0.0.0:*         users:(("systemd-resolved",pid=502,fd=13))\n'
+      'udp   UNCONN    0      0      0.0.0.0:5353                  0.0.0.0:*\n',
+    );
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    await tester.tap(find.byKey(const ValueKey('network-tab-monitor')));
+    await settle(tester);
+    expect(find.text('Showing 3 of 3 connections'), findsOneWidget);
+
+    // B2: tapping "system" in By app filters ONLY to empty-process sockets (1), NOT "systemd-resolved"!
+    await tester.tap(find.byKey(const ValueKey('monitor-view-apps')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('monitor-app-system')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('monitor-app-filter-chip')), findsOneWidget);
+    expect(find.text('Showing 1 of 3 connections'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // S4: Markdown export escapes injection syntax cleanly.
+    final md = formatConnectionsMarkdown([
+      {
+        'process': '[click](https://evil.test)|`cmd`*_x_\\\nnext',
+        'proto': 'tcp',
+        'state': 'ESTABLISHED',
+        'localIp': '192.168.1.2',
+        'localPort': 50000,
+        'remoteIp': '1.1.1.1',
+        'remotePort': 443,
+        'service': 'HTTPS',
+        'scope': 'external',
+      },
+    ]);
+    expect(md, contains(r'\[click\]\(https://evil.test\) \`cmd\`\*\_x\_\\ next'));
+    expect(md.split('\n').where((l) => l.isNotEmpty).length, 3);
+  });
+
+  testWidgets('COSMIC: Network page keeps native card and exposes LAN Devices & Network Monitor', (tester) async {
+    await open(tester, 'COSMIC');
+    await nav(tester, 'network');
+    expect(find.text('This is set in COSMIC Settings'), findsOneWidget);
+    expect(find.byKey(const ValueKey('network-tab-devices')), findsOneWidget);
+    expect(find.byKey(const ValueKey('network-tab-monitor')), findsOneWidget);
+    expect(find.text('FRITZ!Box 7690'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

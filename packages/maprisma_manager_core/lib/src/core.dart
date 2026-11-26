@@ -271,6 +271,8 @@ final class CoreService {
       'network.down': (params) => network.down(params),
       'network.forget': (params) => network.forget(params),
       'network.connect': (params) => network.connect(params),
+      'network.devices': (params) => network.devices(params),
+      'network.monitor': (params) => network.monitor(params),
       'bluetooth.get': (_) => bluetooth.get(),
       'bluetooth.power': (params) => bluetooth.power(params),
       'bluetooth.scan': (params) => bluetooth.scan(params),
