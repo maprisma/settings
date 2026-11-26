@@ -1,6 +1,9 @@
+import 'dart:convert' show utf8;
+
 import 'package:flutter/material.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
+import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
 import 'package:maprisma_ui/settings.dart';
@@ -49,14 +52,109 @@ class _NetworkState extends State<_Network> with RoutePage {
 
   static IconData signal(int s) => s >= 70 ? Icons.network_wifi : s >= 45 ? Icons.network_wifi_3_bar : s >= 25 ? Icons.network_wifi_2_bar : Icons.network_wifi_1_bar;
 
-  Future<void> join(Map v) async {
-    final open = '${v['security']}'.trim().isEmpty;
-    String? password;
-    if (!open) {
-      password = await showDialog<String>(context: context, builder: (_) => _PasswordDialog(ssid: '${v['ssid']}'));
-      if (password == null) return;
+  static const _maxPasswordAttempts = 5;
+
+  /// Runs a core route while keeping [working] true and reloading afterwards; returns any
+  /// [ServiceError] instead of immediately showing a snackbar so callers can handle auth retries.
+  Future<ServiceError?> _tryAction(String route, Map<String, dynamic> params) async {
+    setState(() => working = true);
+    ServiceError? err;
+    try {
+      try {
+        await core(route, params);
+      } on ServiceError catch (e) {
+        err = e;
+      }
+      if (mounted) {
+        try {
+          await load();
+        } on Object {
+          // A reload failure must never mask the primary action result.
+        }
+      }
+    } finally {
+      if (mounted) setState(() => working = false);
     }
-    if (await act('network.connect', {'ssid': v['ssid'], 'password': ?password}) && mounted) tellOn(this, trf('Connected to {0}', [v['ssid']]));
+    return err;
+  }
+
+  Future<void> _promptAndUp(Map k, {String? note, String? title}) async {
+    final name = '${k['name']}';
+    var currentNote = note;
+    for (var attempt = 0; attempt < _maxPasswordAttempts && mounted; attempt++) {
+      final password = await showDialog<String>(
+        context: context,
+        builder: (_) => _PasswordDialog(ssid: name, title: title, note: currentNote),
+      );
+      if (password == null || !mounted) return;
+      final err = await _tryAction('network.up', {'uuid': k['uuid'], 'password': password});
+      if (err == null) {
+        if (mounted) tellOn(this, trf('Connected to {0}', [name]));
+        return;
+      }
+      if (err.code != 'auth_failed' || attempt + 1 >= _maxPasswordAttempts) {
+        if (mounted) tellOn(this, failure(err));
+        return;
+      }
+      currentNote = tr('Wrong password. Try again.');
+    }
+  }
+
+  Future<void> _connectKnown(Map k) async {
+    if (working) return;
+    final name = '${k['name']}';
+    final err = await _tryAction('network.up', {'uuid': k['uuid']});
+    if (err == null) {
+      if (mounted) tellOn(this, trf('Connected to {0}', [name]));
+      return;
+    }
+    if (err.code != 'auth_failed') {
+      if (mounted) tellOn(this, failure(err));
+      return;
+    }
+    if (!mounted) return;
+    await _promptAndUp(k, note: tr('The saved password did not work. Enter a new password.'));
+  }
+
+  Future<void> _changePassword(Map k) async {
+    if (working) return;
+    await _promptAndUp(k, title: trf('Change password for {0}', [k['name']]));
+  }
+
+  Future<void> join(Map v) async {
+    if (working) return;
+    final ssid = '${v['ssid']}';
+    final open = '${v['security']}'.trim().isEmpty;
+    String? note;
+    if (open) {
+      final err = await _tryAction('network.connect', {'ssid': ssid});
+      if (err == null) {
+        if (mounted) tellOn(this, trf('Connected to {0}', [ssid]));
+        return;
+      }
+      if (err.code != 'auth_failed') {
+        if (mounted) tellOn(this, failure(err));
+        return;
+      }
+      note = tr('This network requires a password.');
+    }
+    for (var attempt = 0; attempt < _maxPasswordAttempts && mounted; attempt++) {
+      final password = await showDialog<String>(
+        context: context,
+        builder: (_) => _PasswordDialog(ssid: ssid, note: note),
+      );
+      if (password == null || !mounted) return;
+      final err = await _tryAction('network.connect', {'ssid': ssid, 'password': password});
+      if (err == null) {
+        if (mounted) tellOn(this, trf('Connected to {0}', [ssid]));
+        return;
+      }
+      if (err.code != 'auth_failed' || attempt + 1 >= _maxPasswordAttempts) {
+        if (mounted) tellOn(this, failure(err));
+        return;
+      }
+      note = tr('Wrong password. Try again.');
+    }
   }
 
   Widget _knownRow(Map k) {
@@ -70,15 +168,24 @@ class _NetworkState extends State<_Network> with RoutePage {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextButton(
-            onPressed: working ? null : () => act(on ? 'network.down' : 'network.up', {'uuid': k['uuid']}),
+            onPressed: working ? null : () => on ? act('network.down', {'uuid': k['uuid']}) : _connectKnown(k),
             child: Text(on ? tr('Disconnect') : tr('Connect')),
           ),
           PopupMenuButton<String>(
             key: ValueKey('known-menu-${k['uuid']}'),
             tooltip: tr('More'),
             enabled: !working,
-            itemBuilder: (_) => [PopupMenuItem(value: 'forget', child: Text(tr('Forget')))],
-            onSelected: (_) => act('network.forget', {'uuid': k['uuid']}),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'password', child: Text(tr('Change password'))),
+              PopupMenuItem(value: 'forget', child: Text(tr('Forget'))),
+            ],
+            onSelected: (v) {
+              if (v == 'password') {
+                _changePassword(k);
+              } else if (v == 'forget') {
+                act('network.forget', {'uuid': k['uuid']});
+              }
+            },
           ),
         ],
       ),
@@ -165,8 +272,11 @@ class _NetworkState extends State<_Network> with RoutePage {
 
 /// The network's password (shown on request).
 class _PasswordDialog extends StatefulWidget {
-  const _PasswordDialog({required this.ssid});
+  const _PasswordDialog({required this.ssid, this.note, this.title, this.confirmLabel});
   final String ssid;
+  final String? note;
+  final String? title;
+  final String? confirmLabel;
   @override
   State<_PasswordDialog> createState() => _PasswordDialogState();
 }
@@ -181,33 +291,57 @@ class _PasswordDialogState extends State<_PasswordDialog> {
     super.dispose();
   }
 
-  bool get _ok => _field.text.length >= 8 && _field.text.length <= 63;
+  bool get _ok {
+    final bytes = utf8.encode(_field.text).length;
+    return bytes >= 8 && bytes <= 63;
+  }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(trf('Connect to {0}', [widget.ssid])),
-    content: SizedBox(
-      width: 380,
-      child: TextField(
-        key: const ValueKey('wifi-password'),
-        controller: _field,
-        autofocus: true,
-        obscureText: !_show,
-        onChanged: (_) => setState(() {}),
-        onSubmitted: (_) => _ok ? Navigator.pop(context, _field.text) : null,
-        decoration: InputDecoration(
-          hintText: tr('Password'),
-          suffixIcon: IconButton(
-            tooltip: _show ? tr('Hide password') : tr('Show password'),
-            onPressed: () => setState(() => _show = !_show),
-            icon: Icon(_show ? Icons.visibility_off : Icons.visibility, size: 18),
-          ),
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: Text(widget.title ?? trf('Connect to {0}', [widget.ssid])),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.note != null) ...[
+              Text(
+                widget.note!,
+                key: const ValueKey('wifi-password-note'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.error),
+              ),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              key: const ValueKey('wifi-password'),
+              controller: _field,
+              autofocus: true,
+              obscureText: !_show,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _ok ? Navigator.pop(context, _field.text) : null,
+              decoration: InputDecoration(
+                hintText: tr('Password'),
+                suffixIcon: IconButton(
+                  tooltip: _show ? tr('Hide password') : tr('Show password'),
+                  onPressed: () => setState(() => _show = !_show),
+                  icon: Icon(_show ? Icons.visibility_off : Icons.visibility, size: 18),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Cancel'))),
-      FilledButton(key: const ValueKey('wifi-connect'), onPressed: _ok ? () => Navigator.pop(context, _field.text) : null, child: Text(tr('Connect'))),
-    ],
-  );
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Cancel'))),
+        FilledButton(
+          key: const ValueKey('wifi-connect'),
+          onPressed: _ok ? () => Navigator.pop(context, _field.text) : null,
+          child: Text(widget.confirmLabel ?? tr('Connect')),
+        ),
+      ],
+    );
+  }
 }

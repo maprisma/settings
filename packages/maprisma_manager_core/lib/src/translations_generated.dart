@@ -1422,7 +1422,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Cozy",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Change password",
+    "The saved password did not work. Enter a new password.": "The saved password did not work. Enter a new password.",
+    "Wrong password. Try again.": "Wrong password. Try again.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Enterprise Wi-Fi passwords cannot be changed here",
+    "Change password for {0}": "Change password for {0}",
+    "This network requires a password.": "This network requires a password."
   },
   "de": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} Byte Ausgabe ausgelassen]\n",
@@ -2846,7 +2852,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Gemütlich",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Passwort ändern",
+    "The saved password did not work. Enter a new password.": "Das gespeicherte Passwort hat nicht funktioniert. Gib ein neues Passwort ein.",
+    "Wrong password. Try again.": "Falsches Passwort. Bitte erneut versuchen.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Passwörter für Enterprise-WLAN lassen sich hier nicht ändern",
+    "Change password for {0}": "Passwort für {0} ändern",
+    "This network requires a password.": "Dieses Netzwerk erfordert ein Passwort."
   },
   "fr": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} octets de sortie omis]\n",
@@ -4270,7 +4282,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Cosy",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Changer le mot de passe",
+    "The saved password did not work. Enter a new password.": "Le mot de passe enregistré n'a pas fonctionné. Saisissez un nouveau mot de passe.",
+    "Wrong password. Try again.": "Mot de passe incorrect. Réessayez.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Les mots de passe Wi-Fi d'entreprise ne peuvent pas être modifiés ici",
+    "Change password for {0}": "Changer le mot de passe de {0}",
+    "This network requires a password.": "Ce réseau nécessite un mot de passe."
   },
   "es": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de salida omitidos]\n",
@@ -5694,7 +5712,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Acogedor",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Cambiar contraseña",
+    "The saved password did not work. Enter a new password.": "La contraseña guardada no funcionó. Introduce una contraseña nueva.",
+    "Wrong password. Try again.": "Contraseña incorrecta. Inténtalo de nuevo.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Las contraseñas de Wi-Fi empresarial no se pueden cambiar aquí",
+    "Change password for {0}": "Cambiar contraseña de {0}",
+    "This network requires a password.": "Esta red requiere una contraseña."
   },
   "it": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} byte di output omessi]\n",
@@ -7118,7 +7142,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Accogliente",
     "Terminal": "Terminale",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Cambia password",
+    "The saved password did not work. Enter a new password.": "La password salvata non ha funzionato. Inserisci una nuova password.",
+    "Wrong password. Try again.": "Password errata. Riprova.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Le password Wi-Fi aziendali non possono essere cambiate qui",
+    "Change password for {0}": "Cambia password per {0}",
+    "This network requires a password.": "Questa rete richiede una password."
   },
   "pt": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de saída omitidos]\n",
@@ -8542,7 +8572,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Acolhedor",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Alterar senha",
+    "The saved password did not work. Enter a new password.": "A senha guardada não funcionou. Introduza uma nova senha.",
+    "Wrong password. Try again.": "Senha incorreta. Tente novamente.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "As senhas de Wi-Fi empresarial não podem ser alteradas aqui",
+    "Change password for {0}": "Alterar senha de {0}",
+    "This network requires a password.": "Esta rede requer uma senha."
   },
   "nl": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes uitvoer weggelaten]\n",
@@ -9966,7 +10002,13 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Gezellig",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Wachtwoord wijzigen",
+    "The saved password did not work. Enter a new password.": "Het opgeslagen wachtwoord werkte niet. Voer een nieuw wachtwoord in.",
+    "Wrong password. Try again.": "Onjuist wachtwoord. Probeer het opnieuw.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Wachtwoorden van zakelijke wifi-netwerken kunnen hier niet worden gewijzigd",
+    "Change password for {0}": "Wachtwoord voor {0} wijzigen",
+    "This network requires a password.": "Dit netwerk vereist een wachtwoord."
   },
   "pl": {
     "\n» [{0} bytes of output left out]\n": "\n» [Pominięto {0} bajtów danych]\n",
@@ -11390,6 +11432,12 @@ const catalogs = <String, Map<String, String>>{
     "Cozy": "Przytulny",
     "Terminal": "Terminal",
     "Disco": "Disco",
-    "Zen": "Zen"
+    "Zen": "Zen",
+    "Change password": "Zmień hasło",
+    "The saved password did not work. Enter a new password.": "Zapisane hasło nie zadziałało. Wpisz nowe hasło.",
+    "Wrong password. Try again.": "Nieprawidłowe hasło. Spróbuj ponownie.",
+    "Enterprise Wi-Fi passwords cannot be changed here": "Haseł sieci Wi-Fi Enterprise nie można tu zmienić",
+    "Change password for {0}": "Zmień hasło dla {0}",
+    "This network requires a password.": "Ta sieć wymaga hasła."
   }
 };

@@ -68,11 +68,135 @@ void main() {
     expect(log('nmcli.log').any((l) => l.contains('connection add')), isFalse);
   });
 
-  test('a refused password removes the new connection again', () async {
+  test('a refused password removes the new connection again and throws auth_failed', () async {
     w.writeFile(p.join(w.home, 'fail-up'), '');
     final core = w.core(desktop: 'Hyprland');
-    await expectLater(core.call('network.connect', {'ssid': 'Neighbour', 'password': 'wrong-pass-1'}), throwsA(isA<RouteError>().having((e) => e.message, 'message', contains('Secrets were required'))));
+    await expectLater(
+      core.call('network.connect', {'ssid': 'Neighbour', 'password': 'wrong-pass-1'}),
+      throwsA(isA<RouteError>().having((e) => e.code, 'code', 'auth_failed').having((e) => e.message, 'message', contains('Secrets were required'))),
+    );
     expect(log('nmcli.log'), contains('connection delete uuid $uuidNew'));
+  });
+
+  test('auth failure detection: Wi-Fi auth errors throw auth_failed; non-auth and non-Wi-Fi throw failed', () async {
+    final core = w.core(desktop: 'Hyprland');
+    for (final msg in [
+      'Error: Secrets were required, but not provided.',
+      'Error: No agents were available for this request.',
+      'Error: Connection activation failed: invalid key.',
+      'Error: Connection activation failed: supplicant-timeout.',
+      'Error: Connection activation failed: 4-way handshake failed.',
+    ]) {
+      w.writeFile(p.join(w.home, 'fail-up'), msg);
+      await expectLater(
+        core.call('network.up', {'uuid': uuidHome}),
+        throwsA(isA<RouteError>().having((e) => e.code, 'code', 'auth_failed').having((e) => e.message, 'message', msg.replaceFirst('Error: ', ''))),
+        reason: msg,
+      );
+    }
+    // Config/property errors or non-auth errors must NOT trigger auth_failed.
+    for (final msg in [
+      'Error: No network with SSID found.',
+      'Error: 802-11-wireless-security.key-mgmt: property is missing.',
+      'Error: password field not supported on this setting.',
+    ]) {
+      w.writeFile(p.join(w.home, 'fail-up'), msg);
+      await expectLater(
+        core.call('network.up', {'uuid': uuidHome}),
+        throwsA(isA<RouteError>().having((e) => e.code, 'code', 'failed').having((e) => e.message, 'message', msg.replaceFirst('Error: ', ''))),
+        reason: msg,
+      );
+    }
+    // Non-Wi-Fi (VPN / wired) must never throw auth_failed even if stderr mentions secrets.
+    w.writeFile(p.join(w.home, 'fail-up'), 'Error: Secrets were required, but not provided.');
+    for (final uuid in [uuidWired, uuidVpn]) {
+      await expectLater(
+        core.call('network.up', {'uuid': uuid}),
+        throwsA(isA<RouteError>().having((e) => e.code, 'code', 'failed')),
+        reason: uuid,
+      );
+    }
+  });
+
+  test('network.up with a password preserves SAE/PSK without wiping PSK, uses a private passwd-file, and cleans up', () async {
+    final core = w.core(desktop: 'Hyprland');
+    // WPA3-SAE connection: preserves sae (never overwrites with wpa-psk) and does not wipe wifi-sec.psk.
+    w.writeFile(p.join(w.home, 'key-mgmt'), 'sae');
+    await core.call('network.up', {'uuid': uuidHome, 'password': 'new-secret-999'});
+    final calls = log('nmcli.log');
+    expect(calls.where((l) => !l.startsWith('passwd-file:')).any((l) => l.contains('new-secret-999')), isFalse);
+    expect(calls.any((l) => l.contains('connection edit')), isFalse);
+    expect(calls, contains('passwd-file: 802-11-wireless-security.psk:new-secret-999'));
+    expect(calls, contains('passwd-dir-mode: 700'));
+    final modIdx = calls.indexWhere((l) => l == 'connection modify uuid $uuidHome wifi-sec.psk-flags 0');
+    final upIdx = calls.indexWhere((l) => l.startsWith('connection up uuid $uuidHome passwd-file '));
+    expect(modIdx, greaterThanOrEqualTo(0));
+    expect(upIdx, greaterThan(modIdx));
+    expect(calls[modIdx], isNot(contains('wpa-psk')));
+    expect(calls[modIdx], isNot(contains('wifi-sec.psk ')));
+    final file = calls[upIdx].split(' ').last;
+    expect(File(file).existsSync(), isFalse);
+    expect(Directory(p.dirname(file)).existsSync(), isFalse);
+
+    // Open profile (empty key-mgmt) initializes key-mgmt to wpa-psk.
+    w.writeFile(p.join(w.home, 'key-mgmt'), '');
+    await core.call('network.up', {'uuid': uuidHome, 'password': 'open-to-wpa-1'});
+    expect(log('nmcli.log'), contains('connection modify uuid $uuidHome wifi-sec.key-mgmt wpa-psk wifi-sec.psk-flags 0'));
+
+    // Cleanup also runs when authentication fails.
+    w.writeFile(p.join(w.home, 'key-mgmt'), 'wpa-psk');
+    w.writeFile(p.join(w.home, 'fail-up'), '');
+    await expectLater(
+      core.call('network.up', {'uuid': uuidHome, 'password': 'still-wrong-99'}),
+      throwsA(isA<RouteError>().having((e) => e.code, 'code', 'auth_failed')),
+    );
+    final failedUp = log('nmcli.log').lastWhere((l) => l.startsWith('connection up uuid $uuidHome passwd-file '));
+    final failedFile = failedUp.split(' ').last;
+    expect(File(failedFile).existsSync(), isFalse);
+    expect(Directory(p.dirname(failedFile)).existsSync(), isFalse);
+  });
+
+  test('network.up with password rejects enterprise Wi-Fi, non-Wi-Fi, and invalid passwords (including UTF-8 byte limit)', () async {
+    final core = w.core(desktop: 'Hyprland');
+    for (final params in [
+      {'uuid': uuidWired, 'password': 'valid-pass-123'},
+      {'uuid': uuidVpn, 'password': 'valid-pass-123'},
+      {'uuid': uuidHome, 'password': 'short'},
+      {'uuid': uuidHome, 'password': 'abcdefgh '},
+      {'uuid': uuidHome, 'password': 'has\nnewline'},
+      // 32 'ä' chars = 64 UTF-8 bytes (> 63 byte WPA PSK limit).
+      {'uuid': uuidHome, 'password': 'ä' * 32},
+    ]) {
+      await expectLater(
+        core.call('network.up', params),
+        throwsA(isA<RouteError>().having((e) => e.code, 'code', 'bad_params')),
+        reason: '$params',
+      );
+    }
+    for (final eap in ['wpa-eap', 'wpa-eap-suite-b-192', 'ieee8021x']) {
+      w.writeFile(p.join(w.home, 'key-mgmt'), eap);
+      await expectLater(
+        core.call('network.up', {'uuid': uuidHome, 'password': 'valid-pass-123'}),
+        throwsA(isA<RouteError>().having((e) => e.code, 'code', 'bad_params').having((e) => e.message, 'message', contains('Enterprise'))),
+        reason: eap,
+      );
+    }
+    expect(log('nmcli.log').any((l) => l.startsWith('connection modify') || l.startsWith('connection up')), isFalse);
+  });
+
+  test('network.connect matches existing connections by 802-11-wireless.ssid, not profile name', () async {
+    final core = w.core(desktop: 'Hyprland');
+    // Same actual SSID: reuses uuidHome.
+    final r = await core.call('network.connect', {'ssid': 'Home:Net', 'password': 'updated-pass-1'});
+    expect(r['uuid'], uuidHome);
+    expect(log('nmcli.log').any((l) => l.contains('connection add')), isFalse);
+    expect(log('nmcli.log'), contains('passwd-file: 802-11-wireless-security.psk:updated-pass-1'));
+
+    // Renamed profile whose NAME is "Home:Net" but 802-11-wireless.ssid is "DifferentSSID": creates a new connection.
+    w.writeFile(p.join(w.home, 'home-ssid'), 'DifferentSSID');
+    final r2 = await core.call('network.connect', {'ssid': 'Home:Net', 'password': 'brand-new-pass'});
+    expect(r2['uuid'], uuidNew);
+    expect(log('nmcli.log').any((l) => l.contains('connection add')), isTrue);
   });
 
   test('up/down/forget only for known connections of the right kind; bad input refused', () async {

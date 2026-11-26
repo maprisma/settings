@@ -159,6 +159,106 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Hyprland: Network Connect on known Wi-Fi prompts for password on auth failure and retries', (tester) async {
+    w.writeFile(p.join(w.home, 'home-down'), '');
+    w.writeFile(p.join(w.home, 'expected-psk'), 'right-pass-99');
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    final homeRow = find.byKey(const ValueKey('known-$uuidHome'));
+    expect(find.descendant(of: homeRow, matching: find.text('Connect')), findsOneWidget);
+    await tester.tap(find.descendant(of: homeRow, matching: find.text('Connect')));
+    await settle(tester);
+    // Saved password failed: password dialog opens with explanation.
+    expect(find.byKey(const ValueKey('wifi-password')), findsOneWidget);
+    expect(find.text('The saved password did not work. Enter a new password.'), findsOneWidget);
+    // Wrong password re-opens the dialog with a retry note.
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'wrong-pass-11');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsOneWidget);
+    expect(find.text('Wrong password. Try again.'), findsOneWidget);
+    // Correct password connects and closes the dialog.
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'right-pass-99');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsNothing);
+    expect(find.text('Connected to Home:Net'), findsOneWidget);
+    final calls = log('nmcli.log');
+    expect(calls.any((l) => l.startsWith('connection modify uuid $uuidHome ')), isTrue);
+    expect(calls, contains('passwd-file: 802-11-wireless-security.psk:right-pass-99'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hyprland: Network Change password menu opens dialog and updates known Wi-Fi', (tester) async {
+    w.writeFile(p.join(w.home, 'expected-psk'), 'fresh-pass-42');
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    await tester.tap(find.byKey(const ValueKey('known-menu-$uuidHome')));
+    await settle(tester, 2);
+    expect(find.text('Change password'), findsOneWidget);
+    await tester.tap(find.text('Change password'));
+    await settle(tester, 2);
+    expect(find.text('Change password for Home:Net'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wifi-password')), findsOneWidget);
+    // 32 'ä' chars = 64 UTF-8 bytes (> 63 byte limit): Connect stays disabled.
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'ä' * 32);
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const ValueKey('wifi-connect'))).onPressed, isNull);
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'fresh-pass-42');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsNothing);
+    expect(find.text('Connected to Home:Net'), findsOneWidget);
+    final calls = log('nmcli.log');
+    expect(calls.any((l) => l.startsWith('connection modify uuid $uuidHome ')), isTrue);
+    expect(calls, contains('passwd-file: 802-11-wireless-security.psk:fresh-pass-42'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hyprland: Network wrong password on visible Wi-Fi re-opens password dialog with error note', (tester) async {
+    w.writeFile(p.join(w.home, 'expected-psk'), 'neighbour-ok-1');
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    await tester.tap(find.byKey(const ValueKey('visible-Neighbour')));
+    await settle(tester, 2);
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'wrong-pass-11');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsOneWidget);
+    expect(find.text('Wrong password. Try again.'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'neighbour-ok-1');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsNothing);
+    expect(find.text('Connected to Neighbour'), findsOneWidget);
+    expect(log('nmcli.log'), contains('passwd-file: 802-11-wireless-security.psk:neighbour-ok-1'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Hyprland: Network open Wi-Fi requiring password opens dialog with note', (tester) async {
+    w.writeFile(p.join(w.home, 'fail-open'), '');
+    w.writeFile(p.join(w.home, 'expected-psk'), 'cafe-secret-8');
+    await open(tester, 'Hyprland');
+    await nav(tester, 'network');
+    await tester.tap(find.byKey(const ValueKey('visible-Cafe')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsOneWidget);
+    expect(find.text('This network requires a password.'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('wifi-password')), 'cafe-secret-8');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('wifi-connect')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('wifi-password')), findsNothing);
+    expect(find.text('Connected to Cafe'), findsOneWidget);
+    expect(log('nmcli.log'), contains('passwd-file: 802-11-wireless-security.psk:cafe-secret-8'));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Hyprland: Bluetooth shows the paired device with its battery and disconnects it', (tester) async {
     await open(tester, 'Hyprland');
     await nav(tester, 'bluetooth');

@@ -83,5 +83,11 @@
   "Cozy": "Gezellig",
   "Terminal": "Terminal",
   "Disco": "Disco",
-  "Zen": "Zen"
+  "Zen": "Zen",
+  "Change password": "Wachtwoord wijzigen",
+  "The saved password did not work. Enter a new password.": "Het opgeslagen wachtwoord werkte niet. Voer een nieuw wachtwoord in.",
+  "Wrong password. Try again.": "Onjuist wachtwoord. Probeer het opnieuw.",
+  "Enterprise Wi-Fi passwords cannot be changed here": "Wachtwoorden van zakelijke wifi-netwerken kunnen hier niet worden gewijzigd",
+  "Change password for {0}": "Wachtwoord voor {0} wijzigen",
+  "This network requires a password.": "Dit netwerk vereist een wachtwoord."
 }

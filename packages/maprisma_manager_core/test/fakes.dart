@@ -106,24 +106,75 @@ const uuidWired = '66666666-7777-8888-9999-000000000000';
 const uuidVpn = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const uuidNew = '12345678-1234-1234-1234-123456789abc';
 
-/// A fake nmcli: terse answers from the arguments, every call (and an editor's stdin) logged
-/// to $HOME/nmcli.log; `connection up` fails for the uuid in $HOME/fail-up.
+/// A fake nmcli: terse answers from the arguments, every call logged to $HOME/nmcli.log;
+/// `connection up` fails when $HOME/fail-up exists (with its content or "Secrets were required"),
+/// or when $HOME/expected-psk exists and the passwd-file does not supply that PSK;
+/// $HOME/home-down makes Home:Net show as disconnected.
 void fakeNmcli(World w) {
   w.fake('nmcli', '''
 echo "\$*" >> "\$HOME/nmcli.log"
 case "\$*" in
   "-t radio wifi") echo enabled ;;
-  "-t -f DEVICE,TYPE,STATE,CONNECTION device status") printf 'wlan0:wifi:connected:Home\\\\:Net\\nenp16s0:ethernet:unavailable:\\n' ;;
-  "-t -f NAME,UUID,TYPE,ACTIVE,DEVICE connection show") printf 'Home\\\\:Net:$uuidHome:802-11-wireless:yes:wlan0\\nWired connection 1:$uuidWired:802-3-ethernet:no:\\nWork:$uuidVpn:wireguard:no:\\nlo:x:loopback:yes:lo\\n' ;;
+  "-t -f DEVICE,TYPE,STATE,CONNECTION device status")
+    if [ -f "\$HOME/home-down" ]; then
+      printf 'wlan0:wifi:disconnected:\\nenp16s0:ethernet:unavailable:\\n'
+    else
+      printf 'wlan0:wifi:connected:Home\\\\:Net\\nenp16s0:ethernet:unavailable:\\n'
+    fi ;;
+  "-t -f NAME,UUID,TYPE,ACTIVE,DEVICE connection show")
+    if [ -f "\$HOME/home-down" ]; then
+      printf 'Home\\\\:Net:$uuidHome:802-11-wireless:no:\\nWired connection 1:$uuidWired:802-3-ethernet:no:\\nWork:$uuidVpn:wireguard:no:\\nlo:x:loopback:yes:lo\\n'
+    else
+      printf 'Home\\\\:Net:$uuidHome:802-11-wireless:yes:wlan0\\nWired connection 1:$uuidWired:802-3-ethernet:no:\\nWork:$uuidVpn:wireguard:no:\\nlo:x:loopback:yes:lo\\n'
+    fi ;;
   "-t -f IN-USE,SSID,SECURITY,SIGNAL device wifi list --rescan no"|"-t -f IN-USE,SSID,SECURITY,SIGNAL device wifi list --rescan yes")
     printf '*:Home\\\\:Net:WPA2:70\\n :Home\\\\:Net:WPA3:40\\n :Cafe::55\\n ::WPA2:30\\n :Neighbour:WPA2:80\\n' ;;
   "-t -f connection.uuid connection add"*) echo "connection.uuid:$uuidNew" ;;
+  "-g 802-11-wireless-security.key-mgmt connection show uuid "*)
+    if [ -f "\$HOME/key-mgmt" ]; then
+      km=""
+      IFS= read -r km < "\$HOME/key-mgmt" || true
+      echo "\$km"
+    else
+      echo "wpa-psk"
+    fi ;;
+  "-g 802-11-wireless.ssid connection show uuid $uuidHome")
+    if [ -f "\$HOME/home-ssid" ]; then
+      s=""
+      IFS= read -r s < "\$HOME/home-ssid" || true
+      echo "\$s"
+    else
+      echo "Home:Net"
+    fi ;;
+  "device wifi connect "*)
+    if [ -f "\$HOME/fail-open" ]; then
+      echo "Error: Secrets were required, but not provided." >&2
+      exit 4
+    fi ;;
   "connection up uuid "*)
+    psk=""
     case "\$5" in passwd-file)
-      while IFS= read -r l; do echo "passwd-file: \$l" >> "\$HOME/nmcli.log"; done < "\$6"
+      while IFS= read -r l; do
+        echo "passwd-file: \$l" >> "\$HOME/nmcli.log"
+        psk="\$l"
+      done < "\$6"
       echo "passwd-dir-mode: \$(/usr/bin/stat -c %a "\$(/usr/bin/dirname "\$6")")" >> "\$HOME/nmcli.log" ;;
     esac
-    if [ -f "\$HOME/fail-up" ]; then echo "Error: Secrets were required, but not provided." >&2; exit 4; fi ;;
+    if [ -f "\$HOME/fail-up" ]; then
+      msg=""
+      IFS= read -r msg < "\$HOME/fail-up" || true
+      echo "\${msg:-Error: Secrets were required, but not provided.}" >&2
+      exit 4
+    fi
+    if [ -f "\$HOME/expected-psk" ]; then
+      want=""
+      IFS= read -r want < "\$HOME/expected-psk" || true
+      if [ "\$psk" != "802-11-wireless-security.psk:\$want" ]; then
+        echo "Error: Connection activation failed: Secrets were required, but not provided." >&2
+        exit 4
+      fi
+      /usr/bin/rm -f "\$HOME/home-down"
+    fi ;;
 esac
 exit 0''');
 }

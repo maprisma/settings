@@ -83,5 +83,11 @@
   "Cozy": "Przytulny",
   "Terminal": "Terminal",
   "Disco": "Disco",
-  "Zen": "Zen"
+  "Zen": "Zen",
+  "Change password": "Zmień hasło",
+  "The saved password did not work. Enter a new password.": "Zapisane hasło nie zadziałało. Wpisz nowe hasło.",
+  "Wrong password. Try again.": "Nieprawidłowe hasło. Spróbuj ponownie.",
+  "Enterprise Wi-Fi passwords cannot be changed here": "Haseł sieci Wi-Fi Enterprise nie można tu zmienić",
+  "Change password for {0}": "Zmień hasło dla {0}",
+  "This network requires a password.": "Ta sieć wymaga hasła."
 }

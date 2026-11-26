@@ -40,9 +40,25 @@ final class NetworkService {
     return [for (final l in r.stdout.split('\n')) if (l.isNotEmpty) terse(l)];
   }
 
-  Future<void> _nmcli(List<String> args, {Duration timeout = const Duration(seconds: 45)}) async {
-    final r = await ctx.runner.run(['nmcli', ...args], timeout: timeout);
+  static final _authFailure = RegExp(
+    r'secrets were required|no agents were available|no secrets|no-secrets|supplicant-timeout|supplicant-disconnect|4-way handshake|pre-shared key|invalid key|wrong password',
+    caseSensitive: false,
+  );
+
+  static bool _isAuthFailure(String stderr) => _authFailure.hasMatch(stderr);
+
+  Future<String> _prop(String uuid, String field) async {
+    final r = await ctx.runner.run(['nmcli', '-g', field, 'connection', 'show', 'uuid', uuid], timeout: const Duration(seconds: 15));
     if (!r.ok) throw RouteError('failed', _why(r.stderr, r.code));
+    return r.stdout.replaceFirst(RegExp(r'\r?\n$'), '');
+  }
+
+  Future<void> _nmcli(List<String> args, {Duration timeout = const Duration(seconds: 45), bool detectAuth = false}) async {
+    final r = await ctx.runner.run(['nmcli', ...args], timeout: timeout);
+    if (!r.ok) {
+      final msg = _why(r.stderr, r.code);
+      throw RouteError(detectAuth && _isAuthFailure(r.stderr) ? 'auth_failed' : 'failed', msg);
+    }
   }
 
   static String _why(String s, int code) {
@@ -120,11 +136,79 @@ final class NetworkService {
     return {'name': c[0], 'uuid': c[1], 'type': c[2]};
   }
 
-  /// `network.up` / `network.down` {uuid}: a known Wi-Fi, wired or VPN connection.
+  static String _validatePassword(Object? password) {
+    if (password is! String || password.contains('\n')) {
+      throw RouteError('bad_params', tr('The password needs 8 to 63 characters'));
+    }
+    final bytes = utf8.encode(password).length;
+    if (bytes < 8 || bytes > 63) {
+      throw RouteError('bad_params', tr('The password needs 8 to 63 characters'));
+    }
+    // nmcli trims what it reads from a passwd-file: such a password would be sent shortened.
+    if (password.trim() != password) {
+      throw RouteError('bad_params', tr('A password that starts or ends with a space can\'t be set here: use Maprisma WLAN Monitor or nmcli'));
+    }
+    return password;
+  }
+
+  /// Writes the Wi-Fi PSK into a private 0700 runtime folder / 0600 `secrets` file for `nmcli`'s
+  /// `passwd-file`, runs [fn] with its path, and always removes the folder afterwards.
+  Future<T> _withPasswdFile<T>(String password, Future<T> Function(String path) fn) async {
+    // A folder only this user can enter (0700, in the runtime folder: memory, not disk), the
+    // file only this user can read (0600, never through a link).
+    final runtime = ctx.environment['XDG_RUNTIME_DIR'];
+    final base = runtime != null && runtime.startsWith('/') && Directory(runtime).existsSync() ? runtime : Directory.systemTemp.path;
+    final dir = Directory('$base/maprisma-settings-wifi-$pid-${DateTime.now().microsecondsSinceEpoch}');
+    try {
+      final folder = PrivateFolder.open(dir.path);
+      try {
+        folder.writeNew('secrets', utf8.encode('802-11-wireless-security.psk:$password\n'));
+      } finally {
+        folder.close();
+      }
+      return await fn('${dir.path}/secrets');
+    } finally {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    }
+  }
+
+  /// `network.up` {uuid, password?} / `network.down` {uuid}: a known Wi-Fi, wired or VPN connection.
+  /// With `password` (Wi-Fi PSK/SAE only), preserves existing `sae`/`wpa-psk` key-mgmt without
+  /// wiping any existing saved PSK up front and activates via a private passwd-file (never a
+  /// command line, never nmcli's editor).
   Future<Map<String, dynamic>> up(Map<String, dynamic> params) async {
     _need();
     final c = await _known(params['uuid'], types: {_wifi, _wired, ..._vpn});
-    await _nmcli(['connection', 'up', 'uuid', c['uuid'] as String]);
+    final uuid = c['uuid'] as String;
+    final rawPassword = params['password'];
+    if (rawPassword == null) {
+      await _nmcli(['connection', 'up', 'uuid', uuid], detectAuth: c['type'] == _wifi);
+      return c;
+    }
+    if (c['type'] != _wifi) throw RouteError('bad_params', 'password');
+    final password = _validatePassword(rawPassword);
+    final keyMgmt = (await _prop(uuid, '802-11-wireless-security.key-mgmt')).trim();
+    if (keyMgmt.startsWith('wpa-eap') || keyMgmt == 'ieee8021x') {
+      throw RouteError('bad_params', tr('Enterprise Wi-Fi passwords cannot be changed here'));
+    }
+    // Preserve WPA3-SAE (or existing wpa-psk) and keep any working PSK intact if activation fails;
+    // only initialize key-mgmt to wpa-psk when the profile had no security setting yet.
+    await _nmcli(
+      [
+        'connection',
+        'modify',
+        'uuid',
+        uuid,
+        if (keyMgmt.isEmpty) ...['wifi-sec.key-mgmt', 'wpa-psk'],
+        'wifi-sec.psk-flags',
+        '0',
+      ],
+      timeout: const Duration(seconds: 20),
+    );
+    await _withPasswdFile(
+      password,
+      (path) => _nmcli(['connection', 'up', 'uuid', uuid, 'passwd-file', path], timeout: const Duration(seconds: 60), detectAuth: true),
+    );
     return c;
   }
 
@@ -144,21 +228,30 @@ final class NetworkService {
   }
 
   /// `network.connect` {ssid, password?}: a visible network. Open: `device wifi connect`; with a
-  /// password: a new connection without the key, brought up with a private passwd-file.
+  /// password: a new connection without the key, brought up with a private passwd-file. If a known
+  /// Wi-Fi connection with the same `802-11-wireless.ssid` already exists, activates/updates it.
   Future<Map<String, dynamic>> connect(Map<String, dynamic> params) async {
     _need();
-    final ssid = params['ssid'], password = params['password'];
+    final ssid = params['ssid'], rawPassword = params['password'];
     // A name starting with '-' would reach nmcli as an option.
     if (ssid is! String || ssid.isEmpty || ssid.length > 32 || ssid.contains('\n') || ssid.startsWith('-')) throw RouteError('bad_params', 'ssid');
-    if (password != null && (password is! String || password.length < 8 || password.length > 63 || password.contains('\n'))) {
-      throw RouteError('bad_params', tr('The password needs 8 to 63 characters'));
+    final password = rawPassword == null ? null : _validatePassword(rawPassword);
+    final conns = await _rows(['-f', 'NAME,UUID,TYPE,ACTIVE,DEVICE', 'connection', 'show']);
+    String? existingUuid;
+    for (final c in conns) {
+      if (c.length >= 4 && c[2] == _wifi) {
+        if (await _prop(c[1], '802-11-wireless.ssid') == ssid) {
+          existingUuid = c[1];
+          break;
+        }
+      }
     }
-    // nmcli trims what it reads from a passwd-file: such a password would be sent shortened.
-    if (password is String && password.trim() != password) {
-      throw RouteError('bad_params', tr('A password that starts or ends with a space can\'t be set here: use Maprisma WLAN Monitor or nmcli'));
+    if (existingUuid != null) {
+      final c = await up({'uuid': existingUuid, if (password != null) 'password': password});
+      return {'ssid': ssid, 'uuid': c['uuid']};
     }
     if (password == null) {
-      await _nmcli(['device', 'wifi', 'connect', ssid]);
+      await _nmcli(['device', 'wifi', 'connect', ssid], detectAuth: true);
       return {'ssid': ssid};
     }
     // The key is saved by NetworkManager (psk-flags 0) when it comes from nmcli's passwd-file:
@@ -167,25 +260,15 @@ final class NetworkService {
     if (!add.ok) throw RouteError('failed', _why(add.stderr, add.code));
     final uuid = RegExp(r'[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}').firstMatch(add.stdout)?.group(0);
     if (uuid == null) throw RouteError('failed', tr('NetworkManager made no connection'));
-    // A folder only this user can enter (0700, in the runtime folder: memory, not disk), the
-    // file only this user can read (0600, never through a link).
-    final runtime = ctx.environment['XDG_RUNTIME_DIR'];
-    final base = runtime != null && runtime.startsWith('/') && Directory(runtime).existsSync() ? runtime : Directory.systemTemp.path;
-    final dir = Directory('$base/maprisma-settings-wifi-$pid-${DateTime.now().microsecondsSinceEpoch}');
     try {
-      final folder = PrivateFolder.open(dir.path);
-      try {
-        folder.writeNew('secrets', utf8.encode('802-11-wireless-security.psk:$password\n'));
-      } finally {
-        folder.close();
-      }
-      await _nmcli(['connection', 'up', 'uuid', uuid, 'passwd-file', '${dir.path}/secrets'], timeout: const Duration(seconds: 60));
+      await _withPasswdFile(
+        password,
+        (path) => _nmcli(['connection', 'up', 'uuid', uuid, 'passwd-file', path], timeout: const Duration(seconds: 60), detectAuth: true),
+      );
     } on Object {
       // A wrong password (or a secret file that couldn't be written) leaves no half connection.
       await ctx.runner.run(['nmcli', 'connection', 'delete', 'uuid', uuid], timeout: const Duration(seconds: 15));
       rethrow;
-    } finally {
-      if (dir.existsSync()) dir.deleteSync(recursive: true);
     }
     return {'ssid': ssid, 'uuid': uuid};
   }
