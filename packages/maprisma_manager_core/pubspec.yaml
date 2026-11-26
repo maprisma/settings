@@ -7,6 +7,11 @@ environment:
 dependencies:
   crypto: ^3.0.7
   ffi: ^2.2.0
+  maprisma_core_kit:
+    git:
+      url: https://github.com/maprisma/maprisma-kit.git
+      ref: 39c68c8b9dba8d0cc1aa7b3703832ce8f67dc85e # v0.1.0
+      path: packages/maprisma_core_kit
   path: ^1.9.1
   xml: '>=7.0.1 <8.0.0'
 dev_dependencies:

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:maprisma_manager/window_size.dart';
+import 'package:maprisma_ui/window.dart';
 
 /// Rule 5a: the window opens at the size the user left it.
 void main() {

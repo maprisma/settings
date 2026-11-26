@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:maprisma_core_kit/files.dart' show privateFilesMessageFormatter;
+
 import 'translations_generated.dart';
 
 const languageNames = <String, String>{
@@ -19,6 +21,7 @@ String currentLanguage = 'en';
 void configureLanguage(String? setting, [Map<String, String>? environment]) {
   currentLanguage = setting != null && languageNames.containsKey(setting)
       ? setting : systemLanguage(environment ?? Platform.environment);
+  privateFilesMessageFormatter = trf;
 }
 
 String tr(String english) => catalogs[currentLanguage]?[english] ?? english;

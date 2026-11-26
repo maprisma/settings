@@ -3,7 +3,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Network & Wireless, as COSMIC Settings' Wi-Fi, Wired and VPN pages: the Wi-Fi switch, known
 /// networks (connect, disconnect, forget), visible networks (connect, with a password when

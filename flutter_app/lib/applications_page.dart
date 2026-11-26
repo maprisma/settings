@@ -3,7 +3,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Applications, as COSMIC Settings' Default applications and Startup applications: the
 /// default app per role (xdg-mime) and what starts at login (~/.config/autostart, switched with

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/skin.dart';
 import 'package:maprisma_manager/theme.dart';
-import 'package:maprisma_manager/window_style.dart';
+import 'package:maprisma_ui/window_style.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
 
 void main() {

@@ -4,7 +4,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr;
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Input devices, as COSMIC Settings' Keyboard, Mouse and Touchpad pages: keyboard layouts,
 /// special keys, typing repeat, num lock and the shortcuts (Maprisma Launcher); mouse speed,

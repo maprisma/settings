@@ -5,7 +5,7 @@ import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
 import 'power_page.dart' show idleLabel;
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Notifications: Maprisma Notifier's settings (do not disturb with its schedule, how long the
 /// history is kept, the unread count, crash reports (Check with AI uses the AI page's helper), muted and hidden apps,

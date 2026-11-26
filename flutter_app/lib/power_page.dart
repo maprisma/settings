@@ -5,7 +5,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Power, as COSMIC Settings' Power & Battery page: the power mode and the idle times
 /// (lock, screens off, suspend). COSMIC and KDE have their own settings app for it, so there

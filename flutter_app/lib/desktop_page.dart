@@ -7,7 +7,7 @@ import 'animations_card.dart';
 import 'app_facts.dart' show installed;
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Shows a snack bar (when the page is still there).
 void tellOn(State state, String text) {

@@ -20,7 +20,7 @@ void main() {
     final where = folder.path;
     final handle = PrivateFolder.open(where);
     addTearDown(handle.close);
-    String free(String stamp) => p.join(where, freeScreenshotName(handle, stamp));
+    String free(String stamp) => p.join(where, freeScreenshotName(handle, stamp, filePrefix: 'maprisma-settings'));
     final first = free('20261110-120000');
     expect(p.basename(first), 'maprisma-settings-20261110-120000.png');
     File(first).writeAsBytesSync([1]);
@@ -69,29 +69,29 @@ void main() {
   test('a screenshot is a new private file in a private folder', () {
     final where = p.join(folder.path, 'Pictures', 'Maprisma Settings');
     final at = DateTime(2026, 11, 10, 12, 0, 0);
-    final first = saveScreenshot(where, [0x89, 0x50, 0x4e, 0x47], at: at);
+    final first = saveScreenshot(where, [0x89, 0x50, 0x4e, 0x47], filePrefix: 'maprisma-settings', at: at);
     expect(p.basename(first), 'maprisma-settings-20261110-120000.png');
     expect(mode(where), 0x1c0);
     expect(mode(first), 0x180);
     expect(File(first).readAsBytesSync(), [0x89, 0x50, 0x4e, 0x47]);
-    final second = saveScreenshot(where, [1], at: at);
+    final second = saveScreenshot(where, [1], filePrefix: 'maprisma-settings', at: at);
     expect(p.basename(second), 'maprisma-settings-20261110-120000-2.png');
     expect(File(first).readAsBytesSync(), [0x89, 0x50, 0x4e, 0x47]);
   });
 
   test('the folder: XDG_PICTURES_DIR from user-dirs.dirs, else ~/Pictures', () {
     final home = folder.path;
-    expect(screenshotFolder({'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
+    expect(screenshotFolder(appName: 'Maprisma Settings', environment: {'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
     Directory(p.join(home, '.config')).createSync();
     File(p.join(home, '.config', 'user-dirs.dirs')).writeAsStringSync('XDG_PICTURES_DIR="\$HOME/Bilder"\n');
-    expect(screenshotFolder({'HOME': home}), p.join(home, 'Bilder', 'Maprisma Settings'));
+    expect(screenshotFolder(appName: 'Maprisma Settings', environment: {'HOME': home}), p.join(home, 'Bilder', 'Maprisma Settings'));
     File(p.join(home, '.config', 'user-dirs.dirs')).writeAsStringSync('XDG_PICTURES_DIR="\$HOME/"\n');
-    expect(screenshotFolder({'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
+    expect(screenshotFolder(appName: 'Maprisma Settings', environment: {'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
     // Never through a link: user-dirs.dirs as a link counts as none.
     final real = File(p.join(home, 'dirs'))..writeAsStringSync('XDG_PICTURES_DIR="\$HOME/Bilder"\n');
     File(p.join(home, '.config', 'user-dirs.dirs')).deleteSync();
     Link(p.join(home, '.config', 'user-dirs.dirs')).createSync(real.path);
-    expect(screenshotFolder({'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
+    expect(screenshotFolder(appName: 'Maprisma Settings', environment: {'HOME': home}), p.join(home, 'Pictures', 'Maprisma Settings'));
   });
 
   test('the dialog names the file with ~ for the home folder', () {
@@ -133,7 +133,7 @@ void main() {
     final link = p.join(folder.path, 'linked');
     Link(link).createSync(elsewhere.path);
     expect(() => makePrivateFolder(link), throwsA(isA<FileSystemException>()));
-    expect(() => saveScreenshot(link, [1]), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(link, [1], filePrefix: 'maprisma-settings'), throwsA(isA<FileSystemException>()));
     expect(elsewhere.listSync(), isEmpty);
     final file = File(p.join(folder.path, 'a file'))..writeAsStringSync('x');
     expect(() => makePrivateFolder(file.path), throwsA(isA<FileSystemException>()));
@@ -156,14 +156,14 @@ void main() {
   test('only a real folder of yours that others cannot write to is used', () {
     final open = Directory(p.join(folder.path, 'shared'))..createSync();
     Process.runSync('/bin/chmod', ['777', open.path]);
-    expect(() => saveScreenshot(open.path, [1]), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(open.path, [1], filePrefix: 'maprisma-settings'), throwsA(isA<FileSystemException>()));
     Process.runSync('/bin/chmod', ['775', open.path]);
-    expect(() => saveScreenshot(open.path, [1]), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(open.path, [1], filePrefix: 'maprisma-settings'), throwsA(isA<FileSystemException>()));
     expect(open.listSync(), isEmpty);
     Process.runSync('/bin/chmod', ['755', open.path]); // readable by others, writable only by you: fine
-    expect(File(saveScreenshot(open.path, [1])).existsSync(), isTrue);
+    expect(File(saveScreenshot(open.path, [1], filePrefix: 'maprisma-settings')).existsSync(), isTrue);
     // The note checks the folder again.
-    final picture = saveScreenshot(open.path, [2]);
+    final picture = saveScreenshot(open.path, [2], filePrefix: 'maprisma-settings');
     Process.runSync('/bin/chmod', ['757', open.path]);
     expect(() => saveScreenshotNote(picture, 'note'), throwsA(isA<FileSystemException>()));
     expect(File(p.setExtension(picture, '.txt')).existsSync(), isFalse);
@@ -174,10 +174,10 @@ void main() {
     final where = p.join(folder.path, 'Maprisma Settings');
     debugFailWriteAfter = 3;
     addTearDown(() => debugFailWriteAfter = null);
-    expect(() => saveScreenshot(where, List.filled(10, 7)), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(where, List.filled(10, 7), filePrefix: 'maprisma-settings'), throwsA(isA<FileSystemException>()));
     expect(Directory(where).listSync(), isEmpty);
     debugFailWriteAfter = null;
-    final picture = saveScreenshot(where, List.filled(10, 7));
+    final picture = saveScreenshot(where, List.filled(10, 7), filePrefix: 'maprisma-settings');
     expect(File(picture).lengthSync(), 10);
     debugFailWriteAfter = 2;
     expect(() => saveScreenshotNote(picture, 'a longer note'), throwsA(isA<FileSystemException>()));
@@ -195,12 +195,12 @@ void main() {
     final where = p.join(folder.path, 'Maprisma Settings');
     debugShortWrite = 3;
     addTearDown(() => debugShortWrite = null);
-    final picture = saveScreenshot(where, List.generate(10, (i) => i));
+    final picture = saveScreenshot(where, List.generate(10, (i) => i), filePrefix: 'maprisma-settings');
     expect(File(picture).readAsBytesSync(), List.generate(10, (i) => i));
     debugShortWrite = null;
     debugWriteReturnsZero = true;
     addTearDown(() => debugWriteReturnsZero = false);
-    expect(() => saveScreenshot(where, [1, 2]), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(where, [1, 2], filePrefix: 'maprisma-settings'), throwsA(isA<FileSystemException>()));
     expect(Directory(where).listSync().map((e) => p.basename(e.path)), [p.basename(picture)]);
   });
 }

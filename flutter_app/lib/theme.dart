@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:maprisma_ui/settings.dart' show MaprismaStyleExtension;
 
 import 'skin.dart';
 
@@ -138,6 +139,7 @@ ThemeData appTheme(Brightness platform, Map colors, double radius, {Map? fonts, 
     extensions: [
       sizes,
       AppFonts(mono: fontFamily(fonts, 'mono')),
+      MaprismaStyleExtension(radius: radius, monoFontFamily: fontFamily(fonts, 'mono')),
       MarkColors(
         running: hexColor(colors, 'green') ?? const Color(0xff3a944a),
         update: hexColor(colors, 'orange') ?? const Color(0xffed5b00),

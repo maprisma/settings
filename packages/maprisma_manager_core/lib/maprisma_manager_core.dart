@@ -1,6 +1,17 @@
 /// Maprisma Settings' (formerly Maprisma Manager) core: the catalog, status, git provenance and the routes.
 library;
 
+export 'package:maprisma_core_kit/desktop.dart' show pangoFamily;
+export 'package:maprisma_core_kit/files.dart'
+    show
+        PrivateFolder,
+        debugFailWriteAfter,
+        debugShortWrite,
+        debugWriteReturnsZero,
+        makePrivateFolder,
+        privateFilesMessageFormatter;
+export 'package:maprisma_core_kit/screenshot.dart';
+
 export 'src/about.dart';
 export 'src/ai_update.dart';
 export 'src/applications.dart';
@@ -40,9 +51,7 @@ export 'src/procs.dart';
 export 'src/protocol.dart';
 export 'src/receipts.dart';
 export 'src/removal.dart';
-export 'src/private_files.dart' show PrivateFolder, makePrivateFolder, debugFailWriteAfter, debugShortWrite, debugWriteReturnsZero;
 export 'src/run.dart';
-export 'src/screenshot.dart';
 export 'src/status.dart';
 export 'src/system_apps.dart';
 export 'src/time_lang.dart';

@@ -2,7 +2,7 @@ import 'translations.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'private_files.dart' show PrivateFolder;
+import 'package:maprisma_core_kit/files.dart' show PrivateFolder;
 
 import 'context.dart';
 

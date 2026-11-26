@@ -3,11 +3,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:maprisma_ui/window.dart';
 
 import 'app.dart';
 import 'backend.dart';
 import 'window.dart';
-import 'window_size.dart';
 
 /// `maprisma-settings` (or its old name `maprisma-manager`): the window. With MAPRISMA_MANAGER_READY (the self-update helper started this
 /// build) the file gets this process' pid after the first frame: the helper keeps the new build then.

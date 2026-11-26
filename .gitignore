@@ -1,4 +1,5 @@
 .dart_tool/
 build/
 dist/
+pubspec_overrides.yaml
 __pycache__/

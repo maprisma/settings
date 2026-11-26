@@ -15,7 +15,7 @@ import 'icon_picker.dart';
 import 'job_sheet.dart';
 import 'jobs_model.dart';
 import 'remove_dialog.dart';
-import 'settings_widgets.dart' show pageTitleStyle;
+import 'package:maprisma_ui/settings.dart' show pageTitleStyle;
 import 'theme.dart';
 import 'window.dart';
 

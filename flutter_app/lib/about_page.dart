@@ -4,7 +4,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr;
 
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// About, as COSMIC Settings' page, read only: device name, hardware and the system. A click on
 /// a row copies its value. Hyprland: `about.get`.

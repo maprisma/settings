@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:maprisma_ui/settings.dart' show MaprismaStyleExtension;
 
 import 'theme.dart';
 
@@ -165,9 +166,18 @@ ThemeData applySkinToTheme(ThemeData base, String? skin, {double? radius}) {
     backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
     shape: WidgetStatePropertyAll(shape),
   );
+  final existingStyle = base.extension<MaprismaStyleExtension>();
   final extensions = base.extensions.values
-      .where((ext) => ext is! AppSkinExtension)
-      .followedBy([AppSkinExtension(skin: normalized, style: st)]);
+      .where((ext) => ext is! AppSkinExtension && ext is! MaprismaStyleExtension)
+      .followedBy([
+        AppSkinExtension(skin: normalized, style: st),
+        MaprismaStyleExtension(
+          radius: r,
+          borderColor: st.borderTint.withValues(alpha: 0.48),
+          borderWidth: st.borderWidth,
+          monoFontFamily: existingStyle?.monoFontFamily,
+        ),
+      ]);
 
   return base.copyWith(
     brightness: Brightness.dark,

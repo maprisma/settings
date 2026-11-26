@@ -9,16 +9,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart'
     show tr, trf, configureLanguage, currentLanguage, languageNames, homeShort, saveScreenshot, saveScreenshotNote, screenshotFolder, screenshotNoteLimit;
+import 'package:maprisma_ui/window.dart';
+import 'package:maprisma_ui/window_style.dart';
 
 import 'home.dart';
 import 'core_call.dart';
-import 'esc_close.dart';
 import 'jobs_model.dart';
 import 'skin.dart';
 import 'theme.dart';
-import 'window_style.dart';
 import 'window.dart';
-import 'window_size.dart';
 
 /// Maprisma Settings' (formerly Maprisma Manager) window: the list page in the desktop's colours (`desktop.look`, read as
 /// Maprisma Launcher reads them).
@@ -214,7 +213,11 @@ class _ManagerAppState extends State<ManagerApp> with WidgetsBindingObserver {
         image.dispose();
       }
       if (png == null) throw _NoPicture();
-      path = saveScreenshot(widget.screenshots ?? screenshotFolder(), png.buffer.asUint8List());
+      path = saveScreenshot(
+        widget.screenshots ?? screenshotFolder(appName: 'Maprisma Settings'),
+        png.buffer.asUint8List(),
+        filePrefix: 'maprisma-settings',
+      );
     } on Object catch (e) {
       _shooting = false;
       if (mounted) _toast(trf('The screenshot could not be saved: {0}', [_why(e)]));

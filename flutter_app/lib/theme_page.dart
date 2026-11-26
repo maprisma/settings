@@ -10,7 +10,7 @@ import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
 import 'flip_picture.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 import 'theme.dart';
 
 /// The Theme page: Maprisma Theme's themes in small (`theme.list`, through Theme's core) under a

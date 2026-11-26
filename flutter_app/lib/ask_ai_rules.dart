@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
 import 'core_call.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// What every app's Ask AI may do (docs/ask-ai-rules.md): the overall level, a switch per action,
 /// install sources and folders, what Mail may send (data ids; Mail's part only while Mail is

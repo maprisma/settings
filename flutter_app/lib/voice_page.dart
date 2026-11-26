@@ -6,7 +6,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show VoiceServ
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 import 'theme.dart';
 
 /// Voice: Maprisma Dictation's voice service `maprisma-voice` (`voice.*`, always through its

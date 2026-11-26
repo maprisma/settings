@@ -3,7 +3,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr;
 
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Time & Language, as COSMIC Settings' Date & time and Region & language: automatic time, the
 /// time zone (timedatectl), the system language and formats (localectl). Changes ask for the

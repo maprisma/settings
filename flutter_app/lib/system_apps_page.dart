@@ -9,7 +9,7 @@ import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'job_sheet.dart';
 import 'jobs_model.dart';
-import 'settings_widgets.dart' show pageTitleStyle;
+import 'package:maprisma_ui/settings.dart' show pageTitleStyle;
 import 'system_app_dialogs.dart';
 import 'theme.dart';
 import 'window.dart';

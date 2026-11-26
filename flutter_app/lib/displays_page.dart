@@ -6,7 +6,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Displays, as COSMIC Settings' page without the arrangement canvas: per display on/off,
 /// resolution, refresh rate, scale, orientation, variable refresh rate, position and

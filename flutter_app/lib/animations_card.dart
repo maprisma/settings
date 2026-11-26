@@ -6,7 +6,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr;
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Hyprland's animations on the Appearance page (`animations.*`, written to hypr-manager.lua):
 /// all on/off; windows and workspaces on/off, style and speed; popups and launchers (layers)

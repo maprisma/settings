@@ -3,7 +3,7 @@ import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf;
 
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// Bluetooth, as COSMIC Settings' page: the switch, paired devices (connect, disconnect,
 /// forget, battery) and nearby devices (a scan, then pair and connect). Hyprland:

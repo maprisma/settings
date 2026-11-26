@@ -8,7 +8,7 @@ import 'app_facts.dart';
 import 'app_icon.dart';
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
-import 'settings_widgets.dart' show pageTitleStyle;
+import 'package:maprisma_ui/settings.dart' show pageTitleStyle;
 import 'theme.dart';
 
 const _areas = ['left', 'center', 'right'];

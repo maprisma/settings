@@ -5,7 +5,7 @@ import 'ai_dialog.dart';
 import 'ask_ai_rules.dart';
 import 'core_call.dart';
 import 'desktop_page.dart';
-import 'settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 
 /// AI: the helper every Maprisma app uses (Launcher, Theme, Playground, Notifier's Check with AI,
 /// Mail and the Manager's AI updates), saved in `~/.config/maprisma-ai/settings.json` (`ai.helpers`,

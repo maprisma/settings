@@ -13,7 +13,7 @@ import 'package:maprisma_manager/app.dart';
 import 'package:maprisma_manager/core_call.dart';
 import 'package:maprisma_manager/flip_picture.dart';
 import 'package:maprisma_manager/jobs_model.dart';
-import 'package:maprisma_manager/settings_widgets.dart';
+import 'package:maprisma_ui/settings.dart';
 import 'package:maprisma_manager/theme_page.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart';
 import 'package:path/path.dart' as p;

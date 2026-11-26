@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:maprisma_manager_core/maprisma_manager_core.dart' show tr, trf, languageNames, systemLanguage;
+import 'package:maprisma_ui/settings.dart';
+import 'package:maprisma_ui/window_style.dart';
 
 import 'core_call.dart';
-import 'settings_widgets.dart';
 import 'skin.dart';
 import 'theme.dart';
-import 'window_style.dart';
 
 /// The Manager's own settings (they were the toolbar's Language and Settings menus): language,
 /// corners and F12 (Let AI do the updates and the helper are on the AI page).
