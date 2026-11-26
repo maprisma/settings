@@ -92,7 +92,7 @@ void main() {
       r = await core.call('github.refresh', {'id': 'launcher'});
       expect(r['repos'].single, containsPair('checked', true));
       // an app that isn't on GitHub
-      r = await core.call('github.refresh', {'id': 'home'});
+      r = await core.call('github.refresh', {'id': 'display'});
       expect(r['note'], 'not on GitHub');
     });
 
@@ -218,7 +218,6 @@ exit 1''');
         'maprisma-price-watch': null,
         'maprisma-display': null,
         'maprisma-bluetooth-monitor': 'maprisma/bluetooth-monitor',
-        'maprisma-home': null,
         'maprisma-hue-lights': 'maprisma/hue-lights',
         'maprisma-llm-monitor': 'maprisma/llm-monitor',
         'maprisma-wlan-monitor': 'maprisma/wlan-monitor',
@@ -288,18 +287,18 @@ exit 1''');
 
     test('a folder without a GitHub remote, a missing folder, local only; SOURCE column and sources table', () async {
       w.repo('maprisma-wlan-monitor'); // no remote
-      w.repo('maprisma-home');
+      w.repo('maprisma-display');
       final core = w.core();
       final list = await core.call('apps.list');
       expect(appOf(list, 'wlan')['sources']['where'], 'both');
       expect(appOf(list, 'wlan')['updates']['githubNotes'].single, contains('no remote of the folder is https://github.com/maprisma/wlan-monitor'));
       expect(appOf(list, 'llm')['sources']['where'], 'GitHub');
       expect(appOf(list, 'llm')['repos'][0]['available'], 'cloneable');
-      expect(appOf(list, 'home')['sources']['where'], 'folder');
+      expect(appOf(list, 'display')['sources']['where'], 'folder');
       expect(appOf(list, 'theme')['sources']['where'], 'none');
       final table = statusTable(list);
       expect(table.split('\n')[1], contains('SOURCE'));
-      expect(RegExp(r'^home\s+not installed\s+-\s+folder', multiLine: true).hasMatch(table), isTrue, reason: table);
+      expect(RegExp(r'^display\s+not installed\s+-\s+folder', multiLine: true).hasMatch(table), isTrue, reason: table);
       final sources = sourcesTable(list);
       expect(sources, contains('https://github.com/maprisma/llm-monitor'));
       expect(RegExp(r'^llm\s+maprisma-llm-monitor\s+missing\s+https://github.com/maprisma/llm-monitor\s+unknown', multiLine: true).hasMatch(sources), isTrue, reason: sources);

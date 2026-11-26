@@ -18,12 +18,12 @@ void main() {
   test('a barVia app follows its host in the host\'s section and names it', () {
     final apps = [
       app('maprisma', via: 'control'),
-      app('home', bar: {'has': true, 'state': 'in', 'zone': 'right'}),
+      app('hue', bar: {'has': true, 'state': 'in', 'zone': 'right'}),
       app('control', bar: {'has': true, 'state': 'in', 'zone': 'right'}),
       app('tiling'),
     ];
     expect(ids(apps), [
-      'In the bar: home, control, maprisma',
+      'In the bar: hue, control, maprisma',
       'Not in the bar: ',
       'No bar icon: tiling',
       'Not installed: ',
@@ -51,7 +51,7 @@ void main() {
       up('video'),
       up('narrator', dirty: true),
       up('tiling', here: false),
-      up('home', repair: true),
+      up('hue', repair: true),
       up('launcher', differs: false),
       up('theme', differs: false, release: {'tag': 'v0.5.0', 'installable': true}),
       up('maprisma', kind: 'pacman package maprisma-bin'),
@@ -59,6 +59,6 @@ void main() {
     ]);
     expect([for (final s in plan.steps) '${s.app['id']}:${s.kind}'], ['maprisma:update', 'video:update', 'theme:release', 'settings:update']);
     expect(plan.steps[2].options, {'tag': 'v0.5.0'});
-    expect([for (final (a, why) in plan.skipped) '${a['id']}: $why'], ['narrator: uncommitted changes in maprisma-narrator', 'home: needs Repair first']);
+    expect([for (final (a, why) in plan.skipped) '${a['id']}: $why'], ['narrator: uncommitted changes in maprisma-narrator', 'hue: needs Repair first']);
   });
 }

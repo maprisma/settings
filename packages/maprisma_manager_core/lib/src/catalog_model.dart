@@ -177,7 +177,7 @@ final class BarIcon {
     this.cosmicIconBuiltIn = false,
   });
 
-  /// The COSMIC applet id (the panel config lists it), e.g. io.github.ubruckhaus.CosmicMaprismaHome.
+  /// The COSMIC applet id (the panel config lists it), e.g. io.github.ubruckhaus.CosmicMaprismaHueLights.
   final String? cosmicApplet;
 
   /// The applet's program (template): cosmic-panel starts it as its child.

@@ -272,7 +272,7 @@ writes `zoneLeft/zoneCenter/zoneRight/hidden` as string lists (`currentConfigGro
 up and written atomically. Starting and stopping KDE trays comes with the job engine (step 3).
 
 Every change of one of our icons is recorded in `~/.local/state/maprisma-settings/bar.json`:
-`{"cosmic": {"wlan": {"placed": true, "area": "center", "index": 4}, "home": {"placed": true, "area": "center", "index": 1, "panel": "Dock"}}, "kde": {"launcher": {"placed": false}}}`.
+`{"cosmic": {"wlan": {"placed": true, "area": "center", "index": 4}, "hue": {"placed": true, "area": "center", "index": 1, "panel": "Dock"}}, "kde": {"launcher": {"placed": false}}}`.
 `panel` / `widget` are kept when the change named one; without, the default panel/widget (and, for a
 removal on COSMIC, every panel). A whole change (read, write, bar.json) holds the state lock
 (`~/.local/state/maprisma-settings/lock`, plus an in-process queue).

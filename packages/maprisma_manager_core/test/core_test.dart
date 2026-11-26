@@ -75,7 +75,7 @@ void main() {
       final paths = w.paths;
       final a = p.join(w.dir, 'a'), b = p.join(w.dir, 'b');
       Directory(a).createSync();
-      Directory(p.join(b, 'maprisma-home')).createSync(recursive: true);
+      Directory(p.join(b, 'maprisma-display')).createSync(recursive: true);
       final none = Settings(const {});
       expect(resolveProjectsDir(paths, {'MAPRISMA_PROJECTS': '/x'}, none, catalogRepos).dir, '/x');
       expect(resolveProjectsDir(paths, {}, Settings({'projectsDir': '~/src'}), catalogRepos), (dir: p.join(w.home, 'src'), source: 'settings'));
@@ -212,9 +212,9 @@ void main() {
     });
 
     test('fetch', () async {
-      w.repo('maprisma-home');
+      w.repo('maprisma-display');
       final out = _Capture();
-      expect(await runCli(['fetch', 'home'], service: w.core(), out: out), 0);
+      expect(await runCli(['fetch', 'display'], service: w.core(), out: out), 0);
       expect(out.text, contains('skipped: no upstream'));
     });
   });

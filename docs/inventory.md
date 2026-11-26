@@ -52,19 +52,6 @@ General:
 - **Post:** gtk-update-icon-cache.
 - **Git:** origin maprisma/bluetooth-monitor.
 
-## home: maprisma-home
-
-- **Files:**
-  - `bin/maprisma-home{,-tray}`
-  - `share/maprisma-home/scripts/{stove.py,switchbot.py,stove_map.json}`
-  - `icons/CHome-symbolic.svg`
-  - `apps/CHome{,.Window}.desktop`
-  - `autostart/CHome.Tray.desktop`
-- **Data:** `~/.config/maprisma-home/config.json` (seeded if missing), `~/.local/state/ubruckhaus.home/`.
-- **Bar:** tray id `maprisma-home`.
-- **Processes:** `stove.py`, `switchbot.py`.
-- **Git:** no remote.
-
 ## hue: maprisma-hue-lights
 
 - **Files:**
@@ -220,7 +207,7 @@ Some(([
     "io.github.ubruckhaus.CosmicMaprismaLauncher",
     …
 ], [
-    "io.github.ubruckhaus.CosmicMaprismaHome",
+    "io.github.ubruckhaus.CosmicMaprismaHueLights",
     …
     "com.system76.CosmicAppletPower",
 ]))

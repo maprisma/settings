@@ -21,7 +21,6 @@ filterable list, sections by bar state, a ⋮ menu per app, update marks with th
 | launcher | Maprisma Launcher | maprisma-launcher (+ maprisma-launcher-applet on COSMIC) | flutter | CosmicMaprismaLauncher / fixed widget entry `maprisma-launcher` |
 | theme | Maprisma Theme | maprisma-theme | flutter + rust | CosmicMaprismaTheme / maprisma-theme |
 | bluetooth | Maprisma Bluetooth Monitor | maprisma-bluetooth-monitor | rust | CosmicMaprismaBluetoothMonitor / maprisma-bluetooth-monitor |
-| home | Maprisma Home | maprisma-home | rust | CosmicMaprismaHome / maprisma-home |
 | hue | Maprisma Hue Lights | maprisma-hue-lights | rust | CosmicMaprismaHueLights / maprisma-hue-lights |
 | llm | Maprisma LLM Monitor | maprisma-llm-monitor | rust | CosmicMaprismaLlmMonitor / maprisma-llm-monitor |
 | wlan | Maprisma WLAN Monitor | maprisma-wlan-monitor | rust | CosmicMaprismaWlanMonitor / maprisma-wlan-monitor |

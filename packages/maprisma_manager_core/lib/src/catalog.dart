@@ -24,7 +24,7 @@ const _readerStays = 'made by the reader\'s setup, shared with Omarchy\'s reader
 const _videoTransStays = 'made by "Set up now", shared with Omarchy\'s video-trans: not removed with the app';
 
 /// The rust applet + tray apps share one installer layout (install.sh, `cargo build --release`).
-AppEntry _rustApp({
+AppEntry buildRustAppletEntry({
   required String id,
   required String name,
   required String repo,
@@ -36,10 +36,12 @@ AppEntry _rustApp({
   List<InstalledPath> morePaths = const [],
   List<DataPath> data = const [],
   List<RuntimePath> runtime = const [],
+  List<UnitRef> units = const [],
   String? iconNote,
   bool cosmicIconBuiltIn = false,
   Set<DesktopId> desktops = const {DesktopId.cosmic, DesktopId.kde, DesktopId.hyprland, DesktopId.other},
   List<ProcessMatch> moreProcesses = const [],
+  String? note,
 }) {
   final appId = '$_c$suffix';
   return AppEntry(
@@ -72,6 +74,7 @@ AppEntry _rustApp({
     ],
     data: data,
     runtime: runtime,
+    units: units,
     processes: [
       ProcessMatch(MatchKind.exe, '{bin}/$binary'),
       ProcessMatch(MatchKind.exe, '{bin}/$binary-tray'),
@@ -91,8 +94,44 @@ AppEntry _rustApp({
       cosmicIconBuiltIn: cosmicIconBuiltIn,
     ),
     postSteps: const ['gtk-update-icon-cache'],
+    note: note,
   );
 }
+
+AppEntry _rustApp({
+  required String id,
+  required String name,
+  required String repo,
+  required String suffix,
+  required String binary,
+  required List<String> scripts,
+  String? github,
+  String? appIcon,
+  List<InstalledPath> morePaths = const [],
+  List<DataPath> data = const [],
+  List<RuntimePath> runtime = const [],
+  String? iconNote,
+  bool cosmicIconBuiltIn = false,
+  Set<DesktopId> desktops = const {DesktopId.cosmic, DesktopId.kde, DesktopId.hyprland, DesktopId.other},
+  List<ProcessMatch> moreProcesses = const [],
+}) =>
+    buildRustAppletEntry(
+      id: id,
+      name: name,
+      repo: repo,
+      suffix: suffix,
+      binary: binary,
+      scripts: scripts,
+      github: github,
+      appIcon: appIcon,
+      morePaths: morePaths,
+      data: data,
+      runtime: runtime,
+      iconNote: iconNote,
+      cosmicIconBuiltIn: cosmicIconBuiltIn,
+      desktops: desktops,
+      moreProcesses: moreProcesses,
+    );
 
 /// The built-in catalog; [catalog] is what everything uses (tests may set [catalogOverride]).
 final List<AppEntry> builtinCatalog = [
@@ -543,18 +582,6 @@ final List<AppEntry> builtinCatalog = [
       RuntimePath('/etc/udev/rules.d/42-logitech-hidpp-uaccess.rules', note: 'written by allow-access.sh via pkexec'),
     ],
     iconNote: 'the COSMIC panel shows the kind of the connected device (status icons, kept); this icon shows in the popup, the KDE tray and the menus',
-  ),
-  _rustApp(
-    id: 'home',
-    name: 'Maprisma Home',
-    repo: 'maprisma-home',
-    suffix: 'Home',
-    binary: 'maprisma-home',
-    scripts: const ['stove.py', 'switchbot.py', 'stove_map.json'],
-    data: const [
-      DataPath('{config}/maprisma-home', note: 'config.json seeded by the installer if missing'),
-      DataPath('{state}/ubruckhaus.home'),
-    ],
   ),
   _rustApp(
     id: 'hue',
@@ -1087,7 +1114,16 @@ const repoFolderAliases = {'maprisma-manager': ['maprisma-settings']};
 /// Tests only: another catalog (e.g. the built-in one plus a fake app).
 List<AppEntry>? catalogOverride;
 
-List<AppEntry> get catalog => catalogOverride ?? builtinCatalog;
+/// User-local (private) app entries loaded from `$XDG_CONFIG_HOME/maprisma-settings/local-apps.json`.
+List<AppEntry> _localApps = const [];
+
+List<AppEntry> get localCatalog => _localApps;
+
+void setLocalCatalog(List<AppEntry> entries) {
+  _localApps = List.unmodifiable(entries);
+}
+
+List<AppEntry> get catalog => catalogOverride ?? [...builtinCatalog, ..._localApps];
 
 AppEntry? findApp(String id) {
   for (final a in catalog) {

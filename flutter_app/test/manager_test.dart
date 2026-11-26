@@ -104,8 +104,8 @@ void main() {
     ]) {
       w.writeFile(p.join(w.root, 'usr/share/applications/$id.desktop'), '[Desktop Entry]\nName=$name\nType=Application\n');
     }
-    // installed: WLAN, Hue, LLM, Home, the Launcher (both parts); Theme partly
-    for (final a in ['wlan', 'hue', 'llm', 'home', 'launcher', 'maprisma']) {
+    // installed: WLAN, Hue, LLM, Display, the Launcher (both parts); Theme partly
+    for (final a in ['wlan', 'hue', 'llm', 'display', 'launcher', 'maprisma']) {
       w.install(a);
     }
     w.install('theme', skipParts: {'main'});
@@ -119,7 +119,7 @@ void main() {
     ];
     var n = 0;
     for (final a in catalog) {
-      if (!['wlan', 'hue', 'llm', 'home', 'launcher', 'maprisma', 'theme'].contains(a.id)) continue;
+      if (!['wlan', 'hue', 'llm', 'display', 'launcher', 'maprisma', 'theme'].contains(a.id)) continue;
       final name = a.appIcon ?? a.bar.iconName;
       if (name == null) continue;
       final real = File(p.join(Platform.environment['HOME'] ?? '/', '.local/share/icons/hicolor/scalable/apps/$name.svg'));

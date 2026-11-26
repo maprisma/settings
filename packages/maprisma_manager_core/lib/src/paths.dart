@@ -67,6 +67,7 @@ final class Paths {
   String get managerState => p.join(state, appFolder);
   String get receipts => p.join(managerState, 'installed');
   String get settingsFile => p.join(config, appFolder, 'settings.json');
+  String get localAppsFile => p.join(config, appFolder, 'local-apps.json');
 
   String sys(String absolute) => root == '/' ? absolute : p.join(root, absolute.substring(1));
 

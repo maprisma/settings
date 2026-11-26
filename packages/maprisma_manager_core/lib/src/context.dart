@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'catalog.dart';
 import 'git.dart';
 import 'github.dart';
+import 'local_catalog.dart';
 import 'paths.dart';
 import 'procs.dart';
 import 'run.dart';
@@ -70,6 +71,7 @@ final class Ctx {
       runner = runner ?? Runner(environment),
       clock = clock ?? DateTime.now,
       uid = uid ?? currentUid() {
+    setLocalCatalog(loadLocalCatalog(paths));
     settings = Settings.load(paths);
     final projects = resolveProjectsDir(paths, environment, settings, catalogRepos);
     projectsDir = projects.dir;

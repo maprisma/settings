@@ -48,20 +48,20 @@ void main() {
   });
 
   test('without a GitHub remote: the org repo of its name, once the org was listed', () async {
-    w.repo('maprisma-home'); // no remote
+    w.repo('maprisma-display'); // no remote
     final core = w.core();
-    expect(((appOf(await core.call('apps.list'), 'home')['sources'] as Map)['inputs'] as List).first['github'], isNull);
+    expect(((appOf(await core.call('apps.list'), 'display')['sources'] as Map)['inputs'] as List).first['github'], isNull);
 
     final calls = <String>[];
-    core.ctx.github.http = org([orgRepo('home'), orgRepo('launcher')], calls);
+    core.ctx.github.http = org([orgRepo('display'), orgRepo('launcher')], calls);
     final r = await core.call('github.refresh', {'force': true});
     expect((r['org'] as Map)['checked'], isTrue);
     expect(calls.first, 'orgs/maprisma/repos'); // (the query, page=1, isn't in the recorded path)
     // the found repo is refreshed in the same run
-    expect([for (final x in r['repos'] as List) x['repo']], contains('maprisma/home'));
+    expect([for (final x in r['repos'] as List) x['repo']], contains('maprisma/display'));
 
-    final input = ((appOf(await core.call('apps.list'), 'home')['sources'] as Map)['inputs'] as List).first as Map;
-    expect(input['github']['repo'], 'maprisma/home');
+    final input = ((appOf(await core.call('apps.list'), 'display')['sources'] as Map)['inputs'] as List).first as Map;
+    expect(input['github']['repo'], 'maprisma/display');
     expect(input['github']['linkedBy'], 'org');
     expect(input['remote'], isNull); // the folder has no remote that is it
   });

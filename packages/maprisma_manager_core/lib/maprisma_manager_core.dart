@@ -25,6 +25,7 @@ export 'src/bar_read.dart';
 export 'src/bluetooth.dart';
 export 'src/ron.dart';
 export 'src/catalog.dart';
+export 'src/local_catalog.dart';
 export 'src/cli.dart';
 export 'src/context.dart';
 export 'src/core.dart';

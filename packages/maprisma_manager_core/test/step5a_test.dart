@@ -368,7 +368,7 @@ exit 0''');
       expect(receipt('launcher')['job'], before['job']);
       expect(File(home('.local/lib/maprisma-launcher/data/icudtl.dat')).readAsStringSync(), 'build 1\n');
       // force is a launcher option, a bool, and not for other apps or removes
-      await expectLater(c.call('jobs.start', {'app': 'home', 'kind': 'install', 'options': {'force': true}}),
+      await expectLater(c.call('jobs.start', {'app': 'display', 'kind': 'install', 'options': {'force': true}}),
           throwsA(isA<RouteError>().having((e) => e.code, 'code', 'bad_params')));
       await expectLater(c.call('jobs.start', {'app': 'launcher', 'kind': 'install', 'options': {'force': 'yes'}}),
           throwsA(isA<RouteError>().having((e) => e.code, 'code', 'bad_params')));
@@ -452,39 +452,38 @@ exit 0''');
     expect(exists(home('.local/bin/maprisma-theme-core')), isFalse);
   });
 
-  test('home: remove and install again: back at its place in the panel, files byte-identical, its config kept', () async {
-    final repo = w.repo('maprisma-home');
+  test('display: remove and install again: back at its place in the panel, files byte-identical, its config kept', () async {
+    final repo = w.repo('maprisma-display');
     w.writeFile(p.join(repo, 'install.sh'), r'''#!/bin/sh
 set -eu
-bin="$HOME/.local/bin"; data="${XDG_DATA_HOME:-$HOME/.local/share}"; c=io.github.ubruckhaus.CosmicMaprismaHome
-mkdir -p "$bin" "$data/maprisma-home/scripts" "$data/applications" "$data/icons/hicolor/scalable/apps" "$HOME/.config/autostart" "$HOME/.config/maprisma-home"
-for b in maprisma-home maprisma-home-tray; do printf '#!/bin/sh\n' > "$bin/$b"; chmod 755 "$bin/$b"; done
-for s in stove.py switchbot.py stove_map.json; do echo "$s" > "$data/maprisma-home/scripts/$s"; done
+bin="$HOME/.local/bin"; data="${XDG_DATA_HOME:-$HOME/.local/share}"; c=io.github.ubruckhaus.CosmicMaprismaDisplay
+mkdir -p "$bin" "$data/applications" "$data/icons/hicolor/scalable/apps" "$HOME/.config/autostart" "$HOME/.config/maprisma-display"
+for b in maprisma-display maprisma-display-tray; do printf '#!/bin/sh\n' > "$bin/$b"; chmod 755 "$bin/$b"; done
 echo '<svg/>' > "$data/icons/hicolor/scalable/apps/$c-symbolic.svg"
 printf '[Desktop Entry]\n' > "$data/applications/$c.desktop"
 printf '[Desktop Entry]\n' > "$data/applications/$c.Window.desktop"
 printf '[Desktop Entry]\nOnlyShowIn=KDE;\n' > "$HOME/.config/autostart/$c.Tray.desktop"
-[ -e "$HOME/.config/maprisma-home/config.json" ] || echo '{"seeded": true}' > "$HOME/.config/maprisma-home/config.json"
+[ -e "$HOME/.config/maprisma-display/settings.json" ] || echo '{"seeded": true}' > "$HOME/.config/maprisma-display/settings.json"
 ''', mode: '755');
     w.git(repo, ['add', '.']);
     w.git(repo, ['commit', '-q', '-m', 'installer']);
     final c = core();
-    expect((await run(c, 'home', 'install'))['state'], 'succeeded');
+    expect((await run(c, 'display', 'install'))['state'], 'succeeded');
     final panel = p.join(w.paths.config, 'cosmic/com.system76.CosmicPanel.Panel/v1');
     final wings = p.join(panel, 'plugins_wings');
-    const placed = 'Some(([\n    "com.system76.CosmicAppletWorkspaces",\n], [\n    "io.github.ubruckhaus.CosmicMaprismaHome",\n'
+    const placed = 'Some(([\n    "com.system76.CosmicAppletWorkspaces",\n], [\n    "io.github.ubruckhaus.CosmicMaprismaDisplay",\n'
         '    "io.github.ubruckhaus.CosmicMaprismaVideoTranslator",\n    "com.system76.CosmicAppletPower",\n]))';
     w.writeFile(wings, placed);
-    final config = home('.config/maprisma-home/config.json');
-    w.writeFile(config, '{"stove": "mine"}');
-    final remove = await run(c, 'home', 'remove');
+    final config = home('.config/maprisma-display/settings.json');
+    w.writeFile(config, '{"scale": 1.25}');
+    final remove = await run(c, 'display', 'remove');
     expect(remove['state'], 'succeeded', reason: log(remove));
-    expect(File(wings).readAsStringSync(), isNot(contains('CosmicMaprismaHome')));
-    expect(WantedBar.load(w.paths).of(DesktopId.cosmic, 'home'), {'placed': true, 'area': 'right', 'index': 0});
-    final again = await run(c, 'home', 'install');
+    expect(File(wings).readAsStringSync(), isNot(contains('CosmicMaprismaDisplay')));
+    expect(WantedBar.load(w.paths).of(DesktopId.cosmic, 'display'), {'placed': true, 'area': 'right', 'index': 0});
+    final again = await run(c, 'display', 'install');
     expect(again['state'], 'succeeded', reason: log(again));
     expect(File(wings).readAsStringSync(), placed);
-    expect(File(config).readAsStringSync(), '{"stove": "mine"}');
+    expect(File(config).readAsStringSync(), '{"scale": 1.25}');
   });
 
   group('narrator and video', () {
@@ -695,13 +694,12 @@ printf '[Theme]\nname=%s\n' "$1" > "${XDG_CONFIG_HOME:-$HOME/.config}/plasmarc"'
     });
 
     test('KDE: remove and install again puts the tray back at its place in the widget', () async {
-      final repo = w.repo('maprisma-home');
+      final repo = w.repo('maprisma-display');
       w.writeFile(p.join(repo, 'install.sh'), r'''#!/bin/sh
 set -eu
-bin="$HOME/.local/bin"; data="${XDG_DATA_HOME:-$HOME/.local/share}"; c=io.github.ubruckhaus.CosmicMaprismaHome
-mkdir -p "$bin" "$data/maprisma-home/scripts" "$data/applications" "$data/icons/hicolor/scalable/apps" "$HOME/.config/autostart"
-for b in maprisma-home maprisma-home-tray; do printf '#!/bin/sh\n' > "$bin/$b"; chmod 755 "$bin/$b"; done
-for s in stove.py switchbot.py stove_map.json; do echo "$s" > "$data/maprisma-home/scripts/$s"; done
+bin="$HOME/.local/bin"; data="${XDG_DATA_HOME:-$HOME/.local/share}"; c=io.github.ubruckhaus.CosmicMaprismaDisplay
+mkdir -p "$bin" "$data/applications" "$data/icons/hicolor/scalable/apps" "$HOME/.config/autostart"
+for b in maprisma-display maprisma-display-tray; do printf '#!/bin/sh\n' > "$bin/$b"; chmod 755 "$bin/$b"; done
 echo '<svg/>' > "$data/icons/hicolor/scalable/apps/$c-symbolic.svg"
 printf '[Desktop Entry]\n' > "$data/applications/$c.desktop"
 printf '[Desktop Entry]\n' > "$data/applications/$c.Window.desktop"
@@ -710,19 +708,19 @@ printf '[Desktop Entry]\nOnlyShowIn=KDE;\n' > "$HOME/.config/autostart/$c.Tray.d
       w.git(repo, ['add', '.']);
       w.git(repo, ['commit', '-q', '-m', 'installer']);
       final c = kde();
-      expect((await run(c, 'home', 'install'))['state'], 'succeeded');
+      expect((await run(c, 'display', 'install'))['state'], 'succeeded');
       File(plasma).writeAsStringSync(jsonEncode([
-        {'panel': 1, 'widget': 3, 'zoneLeft': ['maprisma-wlan-monitor', 'maprisma-home', 'maprisma-hue-lights'], 'zoneCenter': ['clock'], 'zoneRight': [], 'hidden': []},
+        {'panel': 1, 'widget': 3, 'zoneLeft': ['maprisma-wlan-monitor', 'maprisma-display', 'maprisma-hue-lights'], 'zoneCenter': ['clock'], 'zoneRight': [], 'hidden': []},
       ]));
-      final remove = await run(c, 'home', 'remove');
+      final remove = await run(c, 'display', 'remove');
       expect(remove['state'], 'succeeded', reason: log(remove));
-      expect(WantedBar.load(w.paths).of(DesktopId.kde, 'home'), {'placed': true, 'area': 'left', 'index': 1, 'widget': 3});
+      expect(WantedBar.load(w.paths).of(DesktopId.kde, 'display'), {'placed': true, 'area': 'left', 'index': 1, 'widget': 3});
       // (the widget's own Launcher entry is added to the left zone as the widget does)
       expect((jsonDecode(File(plasma).readAsStringSync()) as List).single['zoneLeft'], ['maprisma-wlan-monitor', 'maprisma-hue-lights', 'maprisma-launcher']);
-      final again = await run(c, 'home', 'install');
+      final again = await run(c, 'display', 'install');
       expect(again['state'], 'succeeded', reason: log(again));
       final widget = (jsonDecode(File(plasma).readAsStringSync()) as List).single as Map;
-      expect(widget['zoneLeft'], ['maprisma-wlan-monitor', 'maprisma-home', 'maprisma-hue-lights', 'maprisma-launcher']);
+      expect(widget['zoneLeft'], ['maprisma-wlan-monitor', 'maprisma-display', 'maprisma-hue-lights', 'maprisma-launcher']);
       expect(widget['hidden'], isEmpty);
     });
 
@@ -769,7 +767,7 @@ printf '[Desktop Entry]\nOnlyShowIn=KDE;\n' > "$HOME/.config/autostart/$c.Tray.d
         final plasmarc = p.join(w.paths.config, 'plasmarc');
         w.writeFile(plasmarc, '[Theme]\nname=breeze-dark\n');
         Directory(p.join(w.root, 'usr/share/plasma/desktoptheme/breeze-dark')).createSync(recursive: true);
-        File(plasma).writeAsStringSync(jsonEncode([{'panel': 1, 'widget': 7, 'zoneLeft': ['maprisma-home']}]));
+        File(plasma).writeAsStringSync(jsonEncode([{'panel': 1, 'widget': 7, 'zoneLeft': ['maprisma-display']}]));
         final c = kde();
         final job = await run(c, 'icons', 'install');
         expect(job['state'], 'succeeded', reason: log(job));

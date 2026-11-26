@@ -42,21 +42,21 @@ void main() {
   });
 
   test('no upstream: none; untracked files make it dirty; detached HEAD', () async {
-    final dir = w.repo('maprisma-home');
+    final dir = w.repo('maprisma-display');
     File(p.join(dir, 'new.txt')).writeAsStringSync('x');
-    var a = appOf(await w.core().call('apps.list'), 'home');
+    var a = appOf(await w.core().call('apps.list'), 'display');
     expect(repoOf(a)['upstream'], isNull);
     expect(repoOf(a)['untracked'], 1);
     expect(a['updates']['upstreamNew'], isNull);
     w.git(dir, ['checkout', '-q', '--detach']);
-    a = appOf(await w.core().call('apps.list'), 'home');
+    a = appOf(await w.core().call('apps.list'), 'display');
     expect(repoOf(a)['detached'], isTrue);
   });
 
   test('a folder inside another repo is not taken as a repo', () async {
     w.git(w.projects, ['init', '-q']);
-    Directory(p.join(w.projects, 'maprisma-home')).createSync();
-    final g = repoOf(appOf(await w.core().call('apps.list'), 'home'));
+    Directory(p.join(w.projects, 'maprisma-display')).createSync();
+    final g = repoOf(appOf(await w.core().call('apps.list'), 'display'));
     expect(g['present'], isTrue);
     expect(g['isRepo'], isFalse);
     expect(g['error'], 'not a git repository');
@@ -167,8 +167,8 @@ void main() {
   });
 
   test('repos without an upstream are skipped by fetch', () async {
-    w.repo('maprisma-home');
-    final r = await w.core().call('git.fetch', {'id': 'home', 'force': true});
+    w.repo('maprisma-display');
+    final r = await w.core().call('git.fetch', {'id': 'display', 'force': true});
     expect(r['repos'].single, containsPair('skipped', 'no upstream'));
   });
 }

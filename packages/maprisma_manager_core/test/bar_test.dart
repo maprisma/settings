@@ -17,7 +17,7 @@ const realWings = 'Some(([\n'
     '    "$_c",\n'
     '    "${_c}Theme",\n'
     '], [\n'
-    '    "${_c}Home",\n'
+    '    "${_c}Display",\n'
     '    "${_c}VideoTranslator",\n'
     '    "${_c}Narrator",\n'
     '    "${_c}BluetoothMonitor",\n'
@@ -75,7 +75,7 @@ void main() {
       final wd = RonListDoc.parse(realWings, count: 2);
       final right = [...wd.values[1]]..removeAt(0);
       final w2 = wd.render([wd.values[0], right]);
-      expect(w2, realWings.replaceFirst('    "${_c}Home",\n', ''));
+      expect(w2, realWings.replaceFirst('    "${_c}Display",\n', ''));
     });
 
     test('comments stay: outside the lists, and with the item they were written before', () {
@@ -126,13 +126,13 @@ void main() {
 
   group('layout', () {
     test('default places: left and centre at the end, right before COSMIC\'s applets', () {
-      final l = Layout(['a'], ['t'], ['${_c}Home', 'com.system76.CosmicAppletAudio', 'com.system76.CosmicAppletPower']);
+      final l = Layout(['a'], ['t'], ['${_c}Display', 'com.system76.CosmicAppletAudio', 'com.system76.CosmicAppletPower']);
       expect(cosmicDefaultIndex(l, Area.left, 'x'), 1);
       expect(cosmicDefaultIndex(l, Area.center, 'x'), 1);
       expect(cosmicDefaultIndex(l, Area.right, 'x'), 1);
       expect(cosmicDefaultIndex(Layout([], [], ['foreign.Applet']), Area.right, 'x'), 1);
       l.put('a', Area.right, 0);
-      expect(l.toJson(), {'left': <String>[], 'center': ['t'], 'right': ['a', '${_c}Home', 'com.system76.CosmicAppletAudio', 'com.system76.CosmicAppletPower']});
+      expect(l.toJson(), {'left': <String>[], 'center': ['t'], 'right': ['a', '${_c}Display', 'com.system76.CosmicAppletAudio', 'com.system76.CosmicAppletPower']});
       l.put('a', Area.center, 99);
       expect(l.areas[Area.center], ['t', 'a']);
       expect(l.remove('a'), isTrue);
@@ -154,7 +154,7 @@ void main() {
       expect(wlan['iconName'], '${_c}WlanMonitor-symbolic');
       // Every app of the real panel is in it; Maprisma Playground, Notifier, Clipboard, Dictation and the
       // Manager's own icon came later and are out (Mail and Price Watch too).
-      expect([for (final o in r['out'] as List) o['app']], ['playground', 'mail', 'pricewatch', 'display', 'notifier', 'clipboard', 'dictation', 'settings']);
+      expect([for (final o in r['out'] as List) o['app']], ['playground', 'mail', 'pricewatch', 'notifier', 'clipboard', 'dictation', 'settings']);
       expect(r['revision'], isA<String>());
     });
 
@@ -254,10 +254,10 @@ void main() {
       w.writeFile(p.join(w.paths.config, 'cosmic/com.system76.CosmicPanel/v1/entries'), '["Panel", "Dock"]');
       w.writeFile(centerFile('Dock'), 'Some([\n    "com.system76.CosmicAppList",\n])');
       final core = cosmic();
-      await core.call('bar.place', {'app': 'home', 'area': 'center', 'panel': 'Dock'});
+      await core.call('bar.place', {'app': 'display', 'area': 'center', 'panel': 'Dock'});
       final dock = File(centerFile('Dock')).readAsStringSync();
       w.writeFile(centerFile('Dock'), 'Some([\n    "com.system76.CosmicAppList",\n])');
-      expect((await core.call('bar.apply'))['changed'], ['home']);
+      expect((await core.call('bar.apply'))['changed'], ['display']);
       expect(File(centerFile('Dock')).readAsStringSync(), dock);
       expect(File(wingsFile()).readAsStringSync(), realWings); // still in the Panel's right wing, untouched
     });
@@ -279,8 +279,8 @@ void main() {
     test('a None wings file gets wings when an icon goes there', () async {
       w.writeFile(wingsFile(), 'None');
       w.writeFile(centerFile(), realCenter);
-      await cosmic().call('bar.place', {'app': 'home', 'area': 'right'});
-      expect(File(wingsFile()).readAsStringSync(), 'Some(([], [\n    "${_c}Home",\n]))');
+      await cosmic().call('bar.place', {'app': 'display', 'area': 'right'});
+      expect(File(wingsFile()).readAsStringSync(), 'Some(([], [\n    "${_c}Display",\n]))');
     });
 
     test('panel instances from the entries file; taking out removes the id from every panel', () async {
@@ -427,14 +427,14 @@ void main() {
     });
 
     test('bar.get: the zones as the widget shows them (fixed entries, running trays, hidden left out)', () async {
-      plasma([widget(left: ['maprisma-wlan-monitor'], right: ['maprisma-home'], hidden: ['maprisma-hue-lights'])]);
+      plasma([widget(left: ['maprisma-wlan-monitor'], right: ['maprisma-display'], hidden: ['maprisma-hue-lights'])]);
       w.install('llm');
       w.process(600, exe: p.join(w.paths.bin, 'maprisma-llm-monitor-tray'));
       final r = await kde().call('bar.get');
       expect(r['kind'], 'maprismaIcons');
       expect(ids(r, 'left'), ['maprisma-wlan-monitor', 'maprisma-launcher', 'maprisma-llm-monitor']);
       expect(ids(r, 'center'), ['clock']);
-      expect(ids(r, 'right'), ['maprisma-home']);
+      expect(ids(r, 'right'), ['maprisma-display']);
       expect((r['areas']['center'] as List).single, {'id': 'clock', 'ours': false, 'name': 'Clock', 'shown': true});
       expect((r['out'] as List).map((e) => e['app']), contains('hue'));
       expect(File('$state.log').readAsStringSync(), contains("currentConfigGroup = ['General']"));
@@ -475,13 +475,13 @@ void main() {
 
     test('a concurrent change in Plasma is refused with "changed"', () async {
       plasma([widget(left: ['maprisma-wlan-monitor'])]);
-      final core = kde(extra: {'FAKE_PLASMA_RACE': jsonEncode({'zoneLeft': ['maprisma-home']})});
+      final core = kde(extra: {'FAKE_PLASMA_RACE': jsonEncode({'zoneLeft': ['maprisma-display']})});
       await expectLater(core.call('bar.place', {'app': 'wlan', 'area': 'right'}), throwsA(isA<RouteError>().having((e) => e.code, 'code', 'changed')));
       expect(stored().single['zoneRight'], isNull);
       // and with a stale revision from bar.get
       plasma([widget(left: ['maprisma-wlan-monitor'])]);
       final seen = await kde().call('bar.get');
-      final s = stored()..single['zoneLeft'] = ['maprisma-home'];
+      final s = stored()..single['zoneLeft'] = ['maprisma-display'];
       File(state).writeAsStringSync(jsonEncode(s));
       await expectLater(kde().call('bar.place', {'app': 'wlan', 'area': 'right', 'revision': seen['revision']}), throwsA(isA<RouteError>().having((e) => e.code, 'code', 'changed')));
     });
@@ -495,12 +495,12 @@ void main() {
     });
 
     test('several Maprisma Icons: the first by default, another by its id', () async {
-      plasma([widget(id: 3, left: []), widget(id: 9, left: ['maprisma-home'])]);
+      plasma([widget(id: 3, left: []), widget(id: 9, left: ['maprisma-display'])]);
       final core = kde();
       expect((await core.call('bar.get'))['widget'], 3);
-      expect(ids(await core.call('bar.get', {'widget': 9}), 'left').first, 'maprisma-home');
+      expect(ids(await core.call('bar.get', {'widget': 9}), 'left').first, 'maprisma-display');
       await core.call('bar.place', {'app': 'hue', 'area': 'left', 'widget': 9});
-      expect(stored()[1]['zoneLeft'], ['maprisma-home', 'maprisma-launcher', 'maprisma-hue-lights']);
+      expect(stored()[1]['zoneLeft'], ['maprisma-display', 'maprisma-launcher', 'maprisma-hue-lights']);
       expect(stored()[0]['zoneLeft'], isEmpty);
     });
 

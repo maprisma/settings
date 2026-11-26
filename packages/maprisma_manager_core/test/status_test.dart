@@ -26,7 +26,7 @@ void main() {
       expect(a['updates']['buildUnknown'], isFalse);
     }
     expect(appOf(r, 'wlan')['repos'][0]['available'], 'cloneable');
-    expect(appOf(r, 'home')['repos'][0]['available'], 'not available here');
+    expect(appOf(r, 'display')['repos'][0]['available'], 'not available here');
   });
 
   test('installed, then partly installed when a file is missing', () async {
@@ -265,11 +265,11 @@ void main() {
   group('bar state', () {
     test('COSMIC: the zone from plugins_wings / plugins_center', () async {
       final dir = p.join(w.paths.config, 'cosmic/com.system76.CosmicPanel.Panel/v1');
-      w.writeFile(p.join(dir, 'plugins_wings'), 'Some(([\n    "com.system76.CosmicAppletWorkspaces",\n    "io.github.ubruckhaus.CosmicMaprismaLauncher",\n], [\n    "io.github.ubruckhaus.CosmicMaprismaHome",\n]))');
+      w.writeFile(p.join(dir, 'plugins_wings'), 'Some(([\n    "com.system76.CosmicAppletWorkspaces",\n    "io.github.ubruckhaus.CosmicMaprismaLauncher",\n], [\n    "io.github.ubruckhaus.CosmicMaprismaDisplay",\n]))');
       w.writeFile(p.join(dir, 'plugins_center'), 'Some([\n    "io.github.ubruckhaus.CosmicMaprismaWlanMonitor",\n])');
       final r = await list();
       expect(appOf(r, 'launcher')['bar']['zone'], 'left');
-      expect(appOf(r, 'home')['bar']['zone'], 'right');
+      expect(appOf(r, 'display')['bar']['zone'], 'right');
       expect(appOf(r, 'wlan')['bar']['zone'], 'center');
       expect(appOf(r, 'hue')['bar']['state'], 'out');
       expect(appOf(r, 'maprisma')['bar']['state'], 'none');
@@ -284,8 +284,8 @@ void main() {
 
     test('an unreadable panel config is "unknown", not "out"', () async {
       final dir = p.join(w.paths.config, 'cosmic/com.system76.CosmicPanel.Panel/v1');
-      w.writeFile(p.join(dir, 'plugins_wings'), 'Some(([ "io.github.ubruckhaus.CosmicMaprismaHome"');
-      final bar = appOf(await list(), 'home')['bar'];
+      w.writeFile(p.join(dir, 'plugins_wings'), 'Some(([ "io.github.ubruckhaus.CosmicMaprismaDisplay"');
+      final bar = appOf(await list(), 'display')['bar'];
       expect(bar['state'], 'unknown');
       expect(bar['error'], contains('plugins_wings'));
     });
