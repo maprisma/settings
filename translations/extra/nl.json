@@ -258,5 +258,13 @@
   "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "De mirrorlijsten van vóór de laatste rangschikking komen terug. De huidige blijven bewaard als back-up, zodat je terug kunt.",
   "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Dit systeem heeft geen pacman-mirrorlijsten (/etc/pacman.d); de pakketbeheerder kiest mirrors op zijn eigen manier.",
   "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen.",
-  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen."
+  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen.",
+  "Installed theme": "Geïnstalleerd thema",
+  "Online gallery": "Online galerij",
+  "Offline: showing cached icons": "Offline: pictogrammen uit cache worden getoond",
+  "could not download icon pack": "kon pictogrampakket niet downloaden",
+  "curl is missing": "curl ontbreekt",
+  "invalid icon pack data": "ongeldige gegevens van pictogrampakket",
+  "icon: not a gallery icon": "pictogram: geen galerijpictogram",
+  "no gallery icon {0} in {1}": "geen galerijpictogram {0} in {1}"
 }

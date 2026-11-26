@@ -38,7 +38,7 @@ import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.9.1';
+const coreVersion = '0.10.0';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -220,6 +220,7 @@ final class CoreService {
       'jobs.cancel': (params) => jobs.cancel(params),
       'jobs.log': (params) async => jobs.readLog(params),
       'icons.get': (params) => icons.get(params),
+      'icons.gallery': (params) => icons.gallery(params),
       'icons.set': (params) => icons.set(params),
       'icons.reset': (params) => icons.reset(params),
       // The Power page: the desktop's own settings app, or Maprisma Shell's idle times and the

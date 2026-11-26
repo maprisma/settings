@@ -258,5 +258,13 @@
   "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Wracają listy serwerów sprzed ostatniego rankingu. Obecne zostają jako kopia zapasowa, więc można wrócić.",
   "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Ten system nie ma list serwerów pacmana (/etc/pacman.d); jego menedżer pakietów wybiera serwery po swojemu.",
   "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej.",
-  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej."
+  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej.",
+  "Installed theme": "Zainstalowany motyw",
+  "Online gallery": "Galeria online",
+  "Offline: showing cached icons": "Offline: wyświetlanie ikon z pamięci podręcznej",
+  "could not download icon pack": "nie udało się pobrać pakietu ikon",
+  "curl is missing": "brak narzędzia curl",
+  "invalid icon pack data": "nieprawidłowe dane pakietu ikon",
+  "icon: not a gallery icon": "ikona: nie jest ikoną z galerii",
+  "no gallery icon {0} in {1}": "brak ikony z galerii {0} w {1}"
 }

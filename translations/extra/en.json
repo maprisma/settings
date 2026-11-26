@@ -258,5 +258,13 @@
   "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.",
   "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.",
   "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.",
-  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster."
+  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.",
+  "Installed theme": "Installed theme",
+  "Online gallery": "Online gallery",
+  "Offline: showing cached icons": "Offline: showing cached icons",
+  "could not download icon pack": "could not download icon pack",
+  "curl is missing": "curl is missing",
+  "invalid icon pack data": "invalid icon pack data",
+  "icon: not a gallery icon": "icon: not a gallery icon",
+  "no gallery icon {0} in {1}": "no gallery icon {0} in {1}"
 }

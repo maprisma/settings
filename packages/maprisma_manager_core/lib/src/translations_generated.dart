@@ -1597,7 +1597,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.",
+    "Installed theme": "Installed theme",
+    "Online gallery": "Online gallery",
+    "Offline: showing cached icons": "Offline: showing cached icons",
+    "could not download icon pack": "could not download icon pack",
+    "curl is missing": "curl is missing",
+    "invalid icon pack data": "invalid icon pack data",
+    "icon: not a gallery icon": "icon: not a gallery icon",
+    "no gallery icon {0} in {1}": "no gallery icon {0} in {1}"
   },
   "de": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} Byte Ausgabe ausgelassen]\n",
@@ -3196,7 +3204,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Die Spiegelserver-Listen von vor der letzten Bewertung kommen zurück. Die aktuellen werden als Sicherung behalten, sodass du zurückwechseln kannst.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Dieses System hat keine pacman-Spiegelserver-Listen (/etc/pacman.d); sein Paketmanager wählt Spiegelserver auf eigene Weise.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors testet die Arch-Download-Spiegelserver und setzt die schnellsten in /etc/pacman.d/mirrorlist nach vorn. Updates kommen schneller an.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testet die Arch-Download-Spiegelserver und setzt die schnellsten in /etc/pacman.d/mirrorlist nach vorn. Updates kommen schneller an."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testet die Arch-Download-Spiegelserver und setzt die schnellsten in /etc/pacman.d/mirrorlist nach vorn. Updates kommen schneller an.",
+    "Installed theme": "Installiertes Thema",
+    "Online gallery": "Online-Galerie",
+    "Offline: showing cached icons": "Offline: zwischengespeicherte Symbole werden angezeigt",
+    "could not download icon pack": "Symbolpaket konnte nicht heruntergeladen werden",
+    "curl is missing": "curl fehlt",
+    "invalid icon pack data": "ungültige Symbolpaket-Daten",
+    "icon: not a gallery icon": "Symbol: kein Galerie-Symbol",
+    "no gallery icon {0} in {1}": "kein Galerie-Symbol {0} in {1}"
   },
   "fr": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} octets de sortie omis]\n",
@@ -4795,7 +4811,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Les listes de miroirs d’avant le dernier classement reviennent. Les actuelles sont gardées comme sauvegarde, pour pouvoir revenir en arrière.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Ce système n’a pas de listes de miroirs pacman (/etc/pacman.d) ; son gestionnaire de paquets choisit ses miroirs à sa façon.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite.",
+    "Installed theme": "Thème installé",
+    "Online gallery": "Galerie en ligne",
+    "Offline: showing cached icons": "Hors ligne : affichage des icônes en cache",
+    "could not download icon pack": "impossible de télécharger le pack d'icônes",
+    "curl is missing": "curl est manquant",
+    "invalid icon pack data": "données de pack d'icônes invalides",
+    "icon: not a gallery icon": "icône : pas une icône de la galerie",
+    "no gallery icon {0} in {1}": "aucune icône de galerie {0} dans {1}"
   },
   "es": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de salida omitidos]\n",
@@ -6394,7 +6418,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Vuelven las listas de espejos de antes de la última clasificación. Las actuales se guardan como copia, así puedes volver a ellas.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Este sistema no tiene listas de espejos de pacman (/etc/pacman.d); su gestor de paquetes elige los espejos a su manera.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors prueba los espejos de descarga de Arch y pone los más rápidos primero en /etc/pacman.d/mirrorlist. Las actualizaciones llegan antes.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector prueba los espejos de descarga de Arch y pone los más rápidos primero en /etc/pacman.d/mirrorlist. Las actualizaciones llegan antes."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector prueba los espejos de descarga de Arch y pone los más rápidos primero en /etc/pacman.d/mirrorlist. Las actualizaciones llegan antes.",
+    "Installed theme": "Tema instalado",
+    "Online gallery": "Galería en línea",
+    "Offline: showing cached icons": "Sin conexión: mostrando iconos en caché",
+    "could not download icon pack": "no se pudo descargar el paquete de iconos",
+    "curl is missing": "falta curl",
+    "invalid icon pack data": "datos de paquete de iconos no válidos",
+    "icon: not a gallery icon": "icono: no es un icono de la galería",
+    "no gallery icon {0} in {1}": "no hay icono de galería {0} en {1}"
   },
   "it": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} byte di output omessi]\n",
@@ -7993,7 +8025,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Tornano gli elenchi dei mirror di prima dell’ultima classifica. Quelli attuali restano come copia, così puoi tornare indietro.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Questo sistema non ha elenchi di mirror di pacman (/etc/pacman.d); il suo gestore di pacchetti sceglie i mirror a modo suo.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors prova i mirror di download di Arch e mette i più veloci per primi in /etc/pacman.d/mirrorlist. Gli aggiornamenti arrivano prima.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector prova i mirror di download di Arch e mette i più veloci per primi in /etc/pacman.d/mirrorlist. Gli aggiornamenti arrivano prima."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector prova i mirror di download di Arch e mette i più veloci per primi in /etc/pacman.d/mirrorlist. Gli aggiornamenti arrivano prima.",
+    "Installed theme": "Tema installato",
+    "Online gallery": "Galleria online",
+    "Offline: showing cached icons": "Offline: visualizzazione delle icone nella cache",
+    "could not download icon pack": "impossibile scaricare il pacchetto di icone",
+    "curl is missing": "curl mancante",
+    "invalid icon pack data": "dati del pacchetto di icone non validi",
+    "icon: not a gallery icon": "icona: non è un'icona della galleria",
+    "no gallery icon {0} in {1}": "nessuna icona della galleria {0} in {1}"
   },
   "pt": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes de saída omitidos]\n",
@@ -9592,7 +9632,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Voltam as listas de espelhos de antes da última classificação. As atuais ficam como cópia de segurança, para poder voltar atrás.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Este sistema não tem listas de espelhos do pacman (/etc/pacman.d); o seu gestor de pacotes escolhe os espelhos à sua maneira.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O rate-mirrors testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O reflector testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O reflector testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa.",
+    "Installed theme": "Tema instalado",
+    "Online gallery": "Galeria online",
+    "Offline: showing cached icons": "Offline: a mostrar ícones em cache",
+    "could not download icon pack": "não foi possível descarregar o pacote de ícones",
+    "curl is missing": "curl em falta",
+    "invalid icon pack data": "dados do pacote de ícones inválidos",
+    "icon: not a gallery icon": "ícone: não é um ícone da galeria",
+    "no gallery icon {0} in {1}": "nenhum ícone da galeria {0} em {1}"
   },
   "nl": {
     "\n» [{0} bytes of output left out]\n": "\n» [{0} bytes uitvoer weggelaten]\n",
@@ -11191,7 +11239,15 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "De mirrorlijsten van vóór de laatste rangschikking komen terug. De huidige blijven bewaard als back-up, zodat je terug kunt.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Dit systeem heeft geen pacman-mirrorlijsten (/etc/pacman.d); de pakketbeheerder kiest mirrors op zijn eigen manier.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector test de downloadmirrors van Arch en zet de snelste bovenaan in /etc/pacman.d/mirrorlist. Updates komen sneller binnen.",
+    "Installed theme": "Geïnstalleerd thema",
+    "Online gallery": "Online galerij",
+    "Offline: showing cached icons": "Offline: pictogrammen uit cache worden getoond",
+    "could not download icon pack": "kon pictogrampakket niet downloaden",
+    "curl is missing": "curl ontbreekt",
+    "invalid icon pack data": "ongeldige gegevens van pictogrampakket",
+    "icon: not a gallery icon": "pictogram: geen galerijpictogram",
+    "no gallery icon {0} in {1}": "geen galerijpictogram {0} in {1}"
   },
   "pl": {
     "\n» [{0} bytes of output left out]\n": "\n» [Pominięto {0} bajtów danych]\n",
@@ -12790,6 +12846,14 @@ const catalogs = <String, Map<String, String>>{
     "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Wracają listy serwerów sprzed ostatniego rankingu. Obecne zostają jako kopia zapasowa, więc można wrócić.",
     "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Ten system nie ma list serwerów pacmana (/etc/pacman.d); jego menedżer pakietów wybiera serwery po swojemu.",
     "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej.",
-    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej."
+    "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector testuje serwery lustrzane Arch i ustawia najszybsze na początku w /etc/pacman.d/mirrorlist. Aktualizacje przychodzą szybciej.",
+    "Installed theme": "Zainstalowany motyw",
+    "Online gallery": "Galeria online",
+    "Offline: showing cached icons": "Offline: wyświetlanie ikon z pamięci podręcznej",
+    "could not download icon pack": "nie udało się pobrać pakietu ikon",
+    "curl is missing": "brak narzędzia curl",
+    "invalid icon pack data": "nieprawidłowe dane pakietu ikon",
+    "icon: not a gallery icon": "ikona: nie jest ikoną z galerii",
+    "no gallery icon {0} in {1}": "brak ikony z galerii {0} w {1}"
   }
 };

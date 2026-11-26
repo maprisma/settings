@@ -258,5 +258,13 @@
   "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Voltam as listas de espelhos de antes da última classificação. As atuais ficam como cópia de segurança, para poder voltar atrás.",
   "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Este sistema não tem listas de espelhos do pacman (/etc/pacman.d); o seu gestor de pacotes escolhe os espelhos à sua maneira.",
   "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O rate-mirrors testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa.",
-  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O reflector testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa."
+  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "O reflector testa os espelhos de transferência do Arch e coloca os mais rápidos primeiro em /etc/pacman.d/mirrorlist. As atualizações chegam mais depressa.",
+  "Installed theme": "Tema instalado",
+  "Online gallery": "Galeria online",
+  "Offline: showing cached icons": "Offline: a mostrar ícones em cache",
+  "could not download icon pack": "não foi possível descarregar o pacote de ícones",
+  "curl is missing": "curl em falta",
+  "invalid icon pack data": "dados do pacote de ícones inválidos",
+  "icon: not a gallery icon": "ícone: não é um ícone da galeria",
+  "no gallery icon {0} in {1}": "nenhum ícone da galeria {0} em {1}"
 }

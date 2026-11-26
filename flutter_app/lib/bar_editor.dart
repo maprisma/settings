@@ -8,6 +8,7 @@ import 'app_facts.dart';
 import 'app_icon.dart';
 import 'backend.dart' show ServiceError;
 import 'core_call.dart';
+import 'icon_picker.dart';
 import 'package:maprisma_ui/settings.dart' show pageTitleStyle;
 import 'theme.dart';
 
@@ -19,12 +20,13 @@ const _areas = ['left', 'center', 'right'];
 /// above or below, Delete takes one of ours out. Writes with `bar.move` / `bar.place` / `bar.remove`, each
 /// with the revision it was read at: a concurrent edit (`changed`) is shown with Reload.
 class BarEditorPage extends StatefulWidget {
-  const BarEditorPage({super.key, required this.core, required this.apps, this.embedded = false, this.onLeave});
+  const BarEditorPage({super.key, required this.core, required this.apps, this.embedded = false, this.onLeave, this.onIconsChanged});
   final CoreCall core;
 
   /// In the sidebar's Bar page: no Back button; Esc calls [onLeave] (back to the list).
   final bool embedded;
   final VoidCallback? onLeave;
+  final VoidCallback? onIconsChanged;
   final List<App> apps;
   @override
   State<BarEditorPage> createState() => BarEditorPageState();
@@ -122,6 +124,14 @@ class BarEditorPageState extends State<BarEditorPage> {
     await _write('bar.remove', {'app': entry['app']});
   }
 
+  Future<void> _changeIcon(App app) async {
+    final changed = await showDialog<bool>(context: context, builder: (_) => IconPicker(core: widget.core, app: app));
+    if (changed == true && mounted) {
+      await load();
+      widget.onIconsChanged?.call();
+    }
+  }
+
   String _label(Map e) {
     final app = _app(e['app']);
     return app == null ? '${e['name'] ?? e['id']}' : '${app['name']}'.replaceFirst('Maprisma ', '');
@@ -133,14 +143,19 @@ class BarEditorPageState extends State<BarEditorPage> {
     final ours = e['ours'] == true || area == null;
     final app = _app(e['app']);
     final icon = app?['icon'] as Map?;
+    final canChangeIcon = app != null && installed(app) && (e['iconChangeable'] ?? ours) == true;
+    final iconChanged = e['iconChanged'] == true;
+    final barIconFile = e['barIconFile'] as String?;
+    final barIconSha = e['barIconSha'] as String?;
+    final showBarIcon = iconChanged && barIconFile != null;
     final focus = _focus.putIfAbsent(id, () => FocusNode(debugLabel: id));
     final on = selected == id;
     final hidden = e['shown'] == false;
     // The measuring key only on the chip in the bar: the drag's feedback and placeholder are copies.
-    Widget box({Key? key}) => Container(
+    Widget box({Key? key, bool interactive = false}) => Container(
       key: key,
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      padding: EdgeInsets.fromLTRB(8, 4, 12, 4),
+      padding: EdgeInsets.fromLTRB(8, 4, canChangeIcon ? 6 : 12, 4),
       decoration: BoxDecoration(
         color: ours ? scheme.secondaryContainer.withValues(alpha: .7) : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(cornerSizes(context).control),
@@ -150,7 +165,12 @@ class BarEditorPageState extends State<BarEditorPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (app != null)
-            AppIcon(icon?['file'] as String?, symbolic: icon?['symbolic'] == true, size: 20)
+            AppIcon(
+              showBarIcon ? barIconFile : icon?['file'] as String?,
+              symbolic: showBarIcon || icon?['symbolic'] == true,
+              size: 20,
+              cacheKey: barIconSha,
+            )
           else
             Icon(Icons.widgets_outlined, size: 18, color: scheme.onSurfaceVariant.withValues(alpha: .6)),
           const SizedBox(width: 8),
@@ -162,10 +182,48 @@ class BarEditorPageState extends State<BarEditorPage> {
             const SizedBox(width: 4),
             Tooltip(message: tr('Not running: it keeps its place but isn\'t drawn'), child: Icon(Icons.visibility_off, size: 14, color: scheme.onSurfaceVariant)),
           ],
+          if (canChangeIcon) ...[
+            const SizedBox(width: 4),
+            if (interactive)
+              Tooltip(
+                message: tr('Change icon…'),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    key: ValueKey('bar-icon-${app['id']}'),
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: working ? null : () => unawaited(_changeIcon(app)),
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Center(
+                        child: Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: iconChanged ? scheme.primary : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Center(
+                  child: Icon(
+                    Icons.edit_outlined,
+                    size: 14,
+                    color: iconChanged ? scheme.primary : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
-    final body = box(key: _keys.putIfAbsent(id, GlobalKey.new));
+    final body = box(key: _keys.putIfAbsent(id, GlobalKey.new), interactive: true);
     final chip = Focus(
       focusNode: focus,
       onFocusChange: (f) {
@@ -379,9 +437,36 @@ class BarEditorPageState extends State<BarEditorPage> {
           Text('${b['note'] ?? b['error'] ?? tr('Without Maprisma Icons in the panel the icons sit in the system tray: their order is Plasma\'s.')}'),
           SizedBox(height: 12),
           for (final t in trays)
-            ListTile(
-              title: Text(_label({'app': t['app'], 'id': t['id']})),
-              subtitle: Text('${t['startsAtLogin'] == true ? tr('starts at login') : tr('doesn\'t start at login')} · ${t['running'] == true ? 'running' : tr('not running')}'),
+            Builder(
+              builder: (context) {
+                final app = _app(t['app']);
+                final canChangeIcon = app != null && installed(app) && (t['iconChangeable'] ?? true) == true;
+                final iconChanged = t['iconChanged'] == true;
+                final barIconFile = t['barIconFile'] as String?;
+                final barIconSha = t['barIconSha'] as String?;
+                final icon = app?['icon'] as Map?;
+                final showBarIcon = iconChanged && barIconFile != null;
+                return ListTile(
+                  leading: app != null
+                      ? AppIcon(
+                          showBarIcon ? barIconFile : icon?['file'] as String?,
+                          symbolic: showBarIcon || icon?['symbolic'] == true,
+                          size: 24,
+                          cacheKey: barIconSha,
+                        )
+                      : null,
+                  title: Text(_label({'app': t['app'], 'id': t['id']})),
+                  subtitle: Text('${t['startsAtLogin'] == true ? tr('starts at login') : tr('doesn\'t start at login')} · ${t['running'] == true ? 'running' : tr('not running')}'),
+                  trailing: canChangeIcon
+                      ? IconButton(
+                          key: ValueKey('bar-icon-${app['id']}'),
+                          tooltip: tr('Change icon…'),
+                          onPressed: working ? null : () => unawaited(_changeIcon(app)),
+                          icon: Icon(Icons.edit_outlined, size: 18, color: iconChanged ? scheme.primary : scheme.onSurfaceVariant),
+                        )
+                      : null,
+                );
+              },
             ),
         ],
       );

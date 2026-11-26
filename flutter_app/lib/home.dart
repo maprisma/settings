@@ -290,7 +290,14 @@ class ManagerHomeState extends State<ManagerHome> {
   Widget _page(Section s) => switch (s) {
     // Both app lists stay alive (their filter, scroll and job sheet) while another page is open.
     Section.systemApps || Section.apps => const SizedBox.shrink(),
-    Section.bar => BarEditorPage(key: const ValueKey('bar-page'), core: widget.core, apps: appsKey.currentState?.apps ?? const [], embedded: true, onLeave: () => open(Section.apps)),
+    Section.bar => BarEditorPage(
+      key: const ValueKey('bar-page'),
+      core: widget.core,
+      apps: appsKey.currentState?.apps ?? const [],
+      embedded: true,
+      onLeave: () => open(Section.apps),
+      onIconsChanged: () => unawaited(appsKey.currentState?.reload()),
+    ),
     Section.power => PowerPage(key: const ValueKey('power-page'), core: widget.core),
     Section.optimize => OptimizePage(key: const ValueKey('optimize-page'), core: widget.core),
     Section.appearance => AppearancePage(

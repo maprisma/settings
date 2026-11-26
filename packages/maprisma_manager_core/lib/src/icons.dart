@@ -22,6 +22,7 @@ import 'bar_cosmic.dart';
 import 'bar_kde.dart';
 import 'catalog.dart';
 import 'context.dart';
+import 'icon_gallery.dart';
 import 'jobs.dart';
 import 'ownership.dart';
 import 'paths.dart';
@@ -255,11 +256,46 @@ void atomicWriteBytes(String path, List<int> bytes) {
 
 String _sha(List<int> bytes) => sha256Bytes(bytes);
 
-/// `icons.get`, `icons.set`, `icons.reset`, and the choice applied again after installs.
+String? _iconFileOf(Paths paths, AppEntry app) =>
+    app.bar.iconName == null ? null : p.join(paths.icons, '${app.bar.iconName}.svg');
+
+String? _whyNotChangeable(Paths paths, AppEntry app) {
+  final name = app.bar.iconName;
+  if (app.bar.none || name == null) return trf('{0} has no bar icon', [app.name]);
+  final own = name.startsWith('io.github.ubruckhaus.CosmicMaprisma') ||
+      name.startsWith('io.github.ubruckhaus.Maprisma');
+  if (!own || !name.endsWith('-symbolic')) {
+    return trf('{0}\'s bar icon {1} is not a name of its own (changing it would change other icons too)', [app.name, name]);
+  }
+  final file = _iconFileOf(paths, app)!;
+  final installed = app.components.any((c) => c.paths.any((ip) => paths.expand(ip.path) == file));
+  if (!installed) return trf('{0}\'s installer doesn\'t install {1}', [app.name, file]);
+  return null;
+}
+
+/// Summary of an app's bar icon state for `bar.get` entries.
+({bool changeable, bool changed, String? file, String? sha256}) barIconSummary(Paths paths, AppEntry app) {
+  final changeable = _whyNotChangeable(paths, app) == null;
+  final file = _iconFileOf(paths, app);
+  final exists = file != null && FileSystemEntity.typeSync(file, followLinks: false) == FileSystemEntityType.file;
+  final sha = exists ? sha256File(file) : null;
+  final choice = changeable ? _IconState.load(paths, app.id).choice : null;
+  final changed = changeable && choice != null && sha != null && sha == choice['sha256'];
+  return (
+    changeable: changeable,
+    changed: changed,
+    file: exists ? file : null,
+    sha256: sha,
+  );
+}
+
+/// `icons.get`, `icons.gallery`, `icons.set`, `icons.reset`, and the choice applied again after installs.
 final class IconService {
-  IconService(this.ctx, this.jobs);
+  IconService(this.ctx, this.jobs, {IconGallery? gallery, GalleryFetcher? galleryFetcher})
+      : iconGallery = gallery ?? IconGallery(ctx, fetch: galleryFetcher);
   final Ctx ctx;
   final JobEngine jobs;
+  final IconGallery iconGallery;
   Paths get paths => ctx.paths;
 
   AppEntry _app(Map<String, dynamic> params) {
@@ -272,19 +308,27 @@ final class IconService {
 
   /// Why the app's bar icon can't be changed, or null. Only an own name whose file the app's
   /// installer writes (shared and system names would change other apps' icons too).
-  String? whyNot(AppEntry app) {
-    final name = app.bar.iconName;
-    if (app.bar.none || name == null) return trf('{0} has no bar icon', [app.name]);
-    if (!name.startsWith('io.github.ubruckhaus.CosmicMaprisma') || !name.endsWith('-symbolic')) {
-      return trf('{0}\'s bar icon {1} is not a name of its own (changing it would change other icons too)', [app.name, name]);
-    }
-    final file = iconFile(app)!;
-    final installed = app.components.any((c) => c.paths.any((ip) => paths.expand(ip.path) == file));
-    if (!installed) return trf('{0}\'s installer doesn\'t install {1}', [app.name, file]);
-    return null;
-  }
+  String? whyNot(AppEntry app) => _whyNotChangeable(paths, app);
 
-  String? iconFile(AppEntry app) => app.bar.iconName == null ? null : p.join(paths.icons, '${app.bar.iconName}.svg');
+  String? iconFile(AppEntry app) => _iconFileOf(paths, app);
+
+  Future<Map<String, dynamic>> gallery(Map<String, dynamic> params) async {
+    final packParam = params['pack'] ?? 'lucide';
+    final query = params['query'] ?? '';
+    final limit = params['limit'] ?? defaultGalleryLimit;
+    final refresh = params['refresh'] ?? false;
+    if (packParam is! String) {
+      throw RouteError('bad_params', 'pack (${galleryPacks.map((pk) => pk.id).join(', ')})');
+    }
+    final pack = findGalleryPack(packParam);
+    if (pack == null) {
+      throw RouteError('bad_params', 'pack (${galleryPacks.map((pk) => pk.id).join(', ')})');
+    }
+    if (query is! String) throw RouteError('bad_params', 'query');
+    if (limit is! int || limit < 0 || limit > maxChoices) throw RouteError('bad_params', 'limit (0…$maxChoices)');
+    if (refresh is! bool) throw RouteError('bad_params', 'refresh');
+    return iconGallery.query(pack, query: query, limit: limit, refresh: refresh);
+  }
 
   Future<Map<String, dynamic>> get(Map<String, dynamic> params) async {
     final app = _app(params);
@@ -333,9 +377,27 @@ final class IconService {
     };
   }
 
-  /// The SVG for `icon` (a theme name, or a file path): checked, at most [maxIconBytes].
-  ({List<int> bytes, Map<String, dynamic> choice}) _resolve(Object? icon) {
+  /// The SVG for `icon` (a gallery id, theme name, or a file path): checked, at most [maxIconBytes].
+  Future<({List<int> bytes, Map<String, dynamic> choice})> _resolve(Object? icon) async {
     if (icon is! String || icon.trim().isEmpty) throw RouteError('bad_params', tr('icon (a theme icon name or an SVG file)'));
+    if (icon.startsWith('gallery:')) {
+      final parsed = parseGalleryId(icon);
+      if (parsed == null) throw RouteError('bad_params', tr('icon: not a gallery icon'));
+      final hit = await iconGallery.iconSvg(parsed.pack, parsed.name);
+      if (!hit.packLoaded && hit.error != null) {
+        throw RouteError('unavailable', hit.error);
+      }
+      if (hit.svg == null) {
+        throw RouteError('not_found', trf('no gallery icon {0} in {1}', [parsed.name, parsed.pack]));
+      }
+      final bytes = utf8.encode(hit.svg!);
+      if (bytes.length > maxIconBytes) {
+        throw RouteError('bad_icon', trf('{0} is larger than {1} KiB', [icon, maxIconBytes ~/ 1024]));
+      }
+      final why = svgProblem(bytes);
+      if (why != null) throw RouteError('bad_icon', '$icon: $why');
+      return (bytes: bytes, choice: {'kind': 'gallery', 'pack': parsed.pack, 'name': parsed.name});
+    }
     String file;
     Map<String, dynamic> choice;
     if (icon.contains('/')) {
@@ -377,7 +439,7 @@ final class IconService {
   Future<Map<String, dynamic>> set(Map<String, dynamic> params) async {
     final app = _app(params);
     _checkFree(app);
-    final icon = _resolve(params['icon']);
+    final icon = await _resolve(params['icon']);
     final file = iconFile(app)!;
     // no job starts meanwhile (the jobs' lock), the files under the state lock
     return jobs.exclusive(() async {

@@ -9,6 +9,7 @@ import 'bar_hypr.dart';
 import 'bar_kde.dart';
 import 'catalog.dart';
 import 'context.dart';
+import 'icons.dart' show barIconSummary;
 import 'paths.dart';
 import 'procs.dart';
 
@@ -622,11 +623,21 @@ final class Bar {
       ],
   };
 
+  Map<String, dynamic> _iconMeta(AppEntry a) {
+    final s = barIconSummary(paths, a);
+    return {
+      'iconChangeable': s.changeable,
+      'iconChanged': s.changed,
+      'barIconFile': ?s.file,
+      'barIconSha': ?s.sha256,
+    };
+  }
+
   /// Our apps with a bar icon here that are not in the bar.
   List<Map<String, dynamic>> _out(Layout l) => [
     for (final a in catalog)
       if (barId(a) case final id? when l.find(id) == null && a.desktops.contains(ctx.desktop))
-        {'id': id, 'app': a.id, 'name': a.name, 'iconName': _iconName(a)},
+        {'id': id, 'app': a.id, 'name': a.name, 'iconName': _iconName(a), ..._iconMeta(a)},
   ];
 
   List<Map<String, dynamic>> _trays(List<ProcInfo> procs) => [
@@ -637,6 +648,7 @@ final class Bar {
           'id': a.bar.kdeId,
           'startsAtLogin': File(paths.expand(a.bar.kdeAutostart!)).existsSync() && !desktopHidden(paths.expand(a.bar.kdeAutostart!)),
           'running': trayRunning(a, procs),
+          ..._iconMeta(a),
         },
   ];
 
@@ -646,7 +658,7 @@ final class Bar {
   /// file says (COSMIC applets) or nothing.
   Map<String, dynamic> describeEntry(String id, List<ProcInfo> procs) {
     final a = appByBarId(id);
-    if (a != null) return {'id': id, 'ours': true, 'app': a.id, 'name': a.name, 'iconName': _iconName(a)};
+    if (a != null) return {'id': id, 'ours': true, 'app': a.id, 'name': a.name, 'iconName': _iconName(a), ..._iconMeta(a)};
     if (ctx.desktop == DesktopId.kde && id == kdeClock) return {'id': id, 'ours': false, 'name': 'Clock'};
     if (ctx.desktop == DesktopId.hyprland) {
       final name = switch (id) {

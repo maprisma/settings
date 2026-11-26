@@ -38,6 +38,7 @@ export 'src/input.dart';
 export 'src/theme_view.dart';
 export 'src/git.dart';
 export 'src/github.dart';
+export 'src/icon_gallery.dart';
 export 'src/icons.dart';
 export 'src/sound.dart';
 export 'src/sources.dart';

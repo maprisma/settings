@@ -258,5 +258,13 @@
   "The mirror lists from before the last ranking come back. The current ones are kept as the backup, so you can switch back.": "Les listes de miroirs d’avant le dernier classement reviennent. Les actuelles sont gardées comme sauvegarde, pour pouvoir revenir en arrière.",
   "This system has no pacman mirror lists (/etc/pacman.d); its package manager picks mirrors its own way.": "Ce système n’a pas de listes de miroirs pacman (/etc/pacman.d) ; son gestionnaire de paquets choisit ses miroirs à sa façon.",
   "rate-mirrors tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "rate-mirrors teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite.",
-  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite."
+  "reflector tests the Arch download mirrors and puts the fastest first in /etc/pacman.d/mirrorlist. Updates come in faster.": "reflector teste les miroirs de téléchargement d’Arch et place les plus rapides en premier dans /etc/pacman.d/mirrorlist. Les mises à jour arrivent plus vite.",
+  "Installed theme": "Thème installé",
+  "Online gallery": "Galerie en ligne",
+  "Offline: showing cached icons": "Hors ligne : affichage des icônes en cache",
+  "could not download icon pack": "impossible de télécharger le pack d'icônes",
+  "curl is missing": "curl est manquant",
+  "invalid icon pack data": "données de pack d'icônes invalides",
+  "icon: not a gallery icon": "icône : pas une icône de la galerie",
+  "no gallery icon {0} in {1}": "aucune icône de galerie {0} dans {1}"
 }
