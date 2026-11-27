@@ -4,11 +4,11 @@ import 'package:test/test.dart';
 import 'support.dart';
 
 void main() {
-  test('21 apps with unique ids, a key path per component, known dependencies', () {
-    expect(catalog, hasLength(21));
+  test('22 apps with unique ids, a key path per component, known dependencies', () {
+    expect(catalog, hasLength(22));
     final ids = {for (final a in catalog) a.id};
-    expect(ids, hasLength(21));
-    expect(ids, containsAll(['maprisma', 'control', 'launcher', 'theme', 'playground', 'bluetooth', 'hue', 'llm', 'wlan', 'narrator', 'video', 'tiling', 'icons', 'shell', 'settings', 'notifier', 'clipboard', 'dictation', 'display']));
+    expect(ids, hasLength(22));
+    expect(ids, containsAll(['maprisma', 'control', 'launcher', 'theme', 'playground', 'bluetooth', 'hue', 'llm', 'wlan', 'narrator', 'video', 'tiling', 'icons', 'shell', 'settings', 'notifier', 'clipboard', 'dictation', 'display', 'pricewatch', 'chords']));
     expect(findApp('hue')!.name, 'Maprisma Lights');
     expect(findApp('clipboard')!.name, 'Maprisma Clipboard');
     for (final a in catalog) {
@@ -75,6 +75,9 @@ void main() {
     expect(findApp('launcher')!.bar.kdeKind, KdeBarKind.widgetEntry);
     expect(findApp('manager')!.bar.kdeId, 'maprisma-manager');
     expect(findApp('manager')!.bar.cosmicApplet, 'io.github.ubruckhaus.CosmicMaprismaManager');
+    expect(findApp('chords')!.bar.cosmicApplet, 'io.github.ubruckhaus.CosmicMaprismaChords');
+    expect(findApp('chords')!.bar.kdeId, 'maprisma-chords');
+    expect(findApp('chords')!.bar.iconName, 'io.github.ubruckhaus.CosmicMaprismaChords-symbolic');
     for (final id in ['maprisma', 'tiling', 'icons', 'shell']) {
       expect(findApp(id)!.bar.none, isTrue, reason: id);
     }
