@@ -190,7 +190,8 @@ class _NetworkState extends State<_Network> with RoutePage {
   Future<void> _promptAndUp(Map k, {String? note, String? title}) async {
     final name = '${k['name']}';
     var currentNote = note;
-    for (var attempt = 0; attempt < _maxPasswordAttempts && mounted; attempt++) {
+    for (var attempt = 0; attempt < _maxPasswordAttempts; attempt++) {
+      if (!mounted) return;
       final password = await showDialog<String>(
         context: context,
         builder: (_) => _PasswordDialog(ssid: name, title: title, note: currentNote),
@@ -247,7 +248,8 @@ class _NetworkState extends State<_Network> with RoutePage {
       }
       note = tr('This network requires a password.');
     }
-    for (var attempt = 0; attempt < _maxPasswordAttempts && mounted; attempt++) {
+    for (var attempt = 0; attempt < _maxPasswordAttempts; attempt++) {
+      if (!mounted) return;
       final password = await showDialog<String>(
         context: context,
         builder: (_) => _PasswordDialog(ssid: ssid, note: note),
@@ -1871,11 +1873,10 @@ class _NetworkMonitorViewState extends State<_NetworkMonitorView> {
 
 /// The network's password (shown on request).
 class _PasswordDialog extends StatefulWidget {
-  const _PasswordDialog({required this.ssid, this.note, this.title, this.confirmLabel});
+  const _PasswordDialog({required this.ssid, this.note, this.title});
   final String ssid;
   final String? note;
   final String? title;
-  final String? confirmLabel;
   @override
   State<_PasswordDialog> createState() => _PasswordDialogState();
 }
@@ -1938,7 +1939,7 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         FilledButton(
           key: const ValueKey('wifi-connect'),
           onPressed: _ok ? () => Navigator.pop(context, _field.text) : null,
-          child: Text(widget.confirmLabel ?? tr('Connect')),
+          child: Text(tr('Connect')),
         ),
       ],
     );
