@@ -600,7 +600,7 @@ final List<AppEntry> builtinCatalog = [
     data: [
       DataPath('{config}/maprisma-chords', note: 'settings'),
       DataPath('{data}/maprisma-chords', note: 'the song library (imported audio, chord sheets)'),
-      DataPath('{home}/Pictures/Maprisma Chords', note: 'F12 screenshots and their notes'),
+      DataPath('{home}/Pictures/Maprisma Chords', keep: true, note: 'F12 screenshots and their notes (never deleted)'),
     ],
     processes: [
       ProcessMatch(MatchKind.exeUnder, '{lib}/maprisma-chords', note: 'window and maprisma-chords-engine'),
