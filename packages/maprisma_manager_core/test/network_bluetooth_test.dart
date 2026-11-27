@@ -230,8 +230,25 @@ void main() {
     await core.call('bluetooth.pair', {'mac': 'AA:BB:CC:DD:EE:02'});
     await core.call('bluetooth.forget', {'mac': 'AA:BB:CC:DD:EE:01'});
     await core.call('bluetooth.power', {'on': false});
-    expect(log('bt.log'), ['pair AA:BB:CC:DD:EE:02', 'trust AA:BB:CC:DD:EE:02', 'connect AA:BB:CC:DD:EE:02', 'remove AA:BB:CC:DD:EE:01', 'power off']);
+    expect(log('bt.log'), ['show', 'pair AA:BB:CC:DD:EE:02', 'trust AA:BB:CC:DD:EE:02', 'connect AA:BB:CC:DD:EE:02', 'remove AA:BB:CC:DD:EE:01', 'power off']);
     await expectLater(core.call('bluetooth.connect', {'mac': 'aa:bb'}), throwsA(isA<RouteError>().having((e) => e.code, 'code', 'bad_params')));
+  });
+
+  test('bluetooth.pair: a device that never pairs (no bonding) still connects; a failed connect is an error', () async {
+    final core = w.core(desktop: 'Hyprland');
+    await core.call('bluetooth.pair', {'mac': 'AA:BB:CC:DD:EE:04'});
+    expect(log('bt.log'), ['show', 'pair AA:BB:CC:DD:EE:04', 'trust AA:BB:CC:DD:EE:04', 'connect AA:BB:CC:DD:EE:04']);
+    await expectLater(
+      core.call('bluetooth.pair', {'mac': 'AA:BB:CC:DD:EE:05'}),
+      throwsA(isA<RouteError>().having((e) => e.message, 'message', contains('Failed to connect'))),
+    );
+  });
+
+  test('bluetooth.get: trusted devices count as known, not nearby', () async {
+    w.writeFile(p.join(w.home, 'bt-trusted'), 'Device AA:BB:CC:DD:EE:02 Keyboard K3\n');
+    final r = await w.core(desktop: 'Hyprland').call('bluetooth.get');
+    expect((r['paired'] as List).map((d) => d['mac']), ['AA:BB:CC:DD:EE:01', 'AA:BB:CC:DD:EE:02']);
+    expect(r['nearby'], isEmpty);
   });
 
   test('network.devices: parses link, wireless iw details, OUI vendors, device kinds, and traffic rate deltas', () async {

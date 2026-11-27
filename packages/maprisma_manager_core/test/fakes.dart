@@ -185,6 +185,9 @@ echo "$*" >> "$HOME/bt.log"
 case "$*" in
   show) printf 'Controller 60:E9:AA:5D:C2:BC (public)\n\tName: pc\n\tPowered: yes\n' ;;
   "devices Paired") echo "Device AA:BB:CC:DD:EE:01 Headphones" ;;
+  "devices Trusted") [ -f "$HOME/bt-trusted" ] && while IFS= read -r l; do echo "$l"; done < "$HOME/bt-trusted" ;;
+  "pair AA:BB:CC:DD:EE:04") echo "Failed to pair: org.bluez.Error.AuthenticationTimeout" ; exit 1 ;;
+  "connect AA:BB:CC:DD:EE:05") echo "Failed to connect: org.bluez.Error.Failed" ; exit 1 ;;
   devices) printf 'Device AA:BB:CC:DD:EE:01 Headphones\nDevice AA:BB:CC:DD:EE:02 Keyboard K3\nDevice AA:BB:CC:DD:EE:03 AA-BB-CC-DD-EE-03\n' ;;
   "info AA:BB:CC:DD:EE:01") printf 'Device AA:BB:CC:DD:EE:01 (public)\n\tAlias: My Headphones\n\tIcon: audio-headset\n\tConnected: yes\n\tBattery Percentage: 0x50 (80)\n' ;;
 esac

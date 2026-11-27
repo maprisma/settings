@@ -46,7 +46,11 @@ final class BluetoothService {
     final paired = <Map<String, dynamic>>[];
     final nearby = <Map<String, dynamic>>[];
     if (controller) {
+      // Trusted counts too (as in the Bluetooth Monitor): devices without bonding are only trusted.
       final pairedList = devices(await _ctl(['devices', 'Paired']));
+      for (final t in devices(await _ctl(['devices', 'Trusted']))) {
+        if (!pairedList.any((x) => x.mac == t.mac)) pairedList.add(t);
+      }
       for (final d in pairedList) {
         final i = info(await _ctl(['info', d.mac]));
         final battery = RegExp(r'\((\d+)\)').firstMatch(i['Battery Percentage'] ?? '')?.group(1);
@@ -80,6 +84,13 @@ final class BluetoothService {
     return await get();
   }
 
+  Future<void> _powerOn() async {
+    final show = await ctx.runner.run(['bluetoothctl', 'show'], timeout: const Duration(seconds: 10));
+    if (show.ok && info(show.stdout)['Powered'] != 'yes') {
+      await ctx.runner.run(['bluetoothctl', 'power', 'on'], timeout: const Duration(seconds: 10));
+    }
+  }
+
   String _macOf(Map<String, dynamic> params) {
     final mac = params['mac'];
     if (mac is! String || !_mac.hasMatch(mac)) throw RouteError('bad_params', 'mac');
@@ -98,9 +109,18 @@ final class BluetoothService {
       case 'forget':
         await _ctl(['remove', mac]);
       case 'pair':
-        await _ctl(['pair', mac], timeout: const Duration(seconds: 60));
-        await _ctl(['trust', mac]);
-        await _ctl(['connect', mac], timeout: const Duration(seconds: 30));
+        // Same steps as the Bluetooth Monitor (and Omarchy's omarchy-bluetooth-device): power on,
+        // pair, trust, connect. A failed pair doesn't stop it: devices without bonding (Spark amps
+        // and other BLE gear) never answer `pair` but connect fine once trusted. Only a failed
+        // connect is an error.
+        await _powerOn();
+        final pair = await ctx.runner.run(['bluetoothctl', 'pair', mac], timeout: const Duration(seconds: 20));
+        await ctx.runner.run(['bluetoothctl', 'trust', mac], timeout: const Duration(seconds: 10));
+        final connect = await ctx.runner.run(['bluetoothctl', 'connect', mac], timeout: const Duration(seconds: 30));
+        if (!connect.ok) {
+          final r = pair.ok ? connect : pair;
+          throw RouteError('failed', _why('${r.stderr}\n${r.stdout}', r.code));
+        }
       default:
         throw RouteError('bad_params', 'action');
     }
