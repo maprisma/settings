@@ -32,7 +32,7 @@ final class VoiceService {
   /// The settings the page sets; the service checks the values.
   static const keys = {
     'enabled', 'engine', 'model', 'language', 'microphone', 'unload_minutes', 'preload', //
-    'noise_filter', 'vad_sensitivity', 'hallucination_filter', //
+    'noise_filter', 'vad_sensitivity', 'hallucination_filter', 'media_during_dictation', //
     'wake_enabled', 'wake_phrase', 'wake_language', 'wake_model', 'wake_sensitivity',
   };
 
@@ -41,6 +41,9 @@ final class VoiceService {
 
   /// Voice-activity detection threshold for dictation.
   static const vadSensitivities = ['strict', 'normal', 'sensitive'];
+
+  /// What to do with playing media (videos, music) while dictation is listening.
+  static const mediaActions = ['keep', 'duck', 'pause'];
 
   /// How far what was heard may be from the wake phrase.
   static const sensitivities = ['strict', 'normal', 'loose'];
@@ -61,6 +64,7 @@ final class VoiceService {
         args = {
             library.name  = aec/libspa-aec-webrtc
             node.latency  = 1024/48000
+            monitor.mode  = true
             aec.args = {
                 webrtc.gain_control = true
                 webrtc.noise_suppression = true
@@ -266,6 +270,7 @@ final class VoiceService {
     'unload_minutes' => value is int && value >= 0 && value <= 1440,
     'noise_filter' => value is String && noiseFilters.contains(value),
     'vad_sensitivity' => value is String && vadSensitivities.contains(value),
+    'media_during_dictation' => value is String && mediaActions.contains(value),
     'wake_phrase' => value is String && validWakePhrase(value),
     'wake_language' => value is String && _language.hasMatch(value),
     'wake_model' => value is String && (value.isEmpty || (_name.hasMatch(value) && !value.contains('..'))),

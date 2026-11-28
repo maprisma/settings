@@ -447,6 +447,12 @@ class VoicePageState extends State<VoicePage> with RoutePage {
     _ => tr('Normal'),
   };
 
+  static String mediaActionName(String id) => switch (id) {
+    'duck' => tr('Lower volume'),
+    'pause' => tr('Pause media'),
+    _ => tr('Keep playing'),
+  };
+
   static String _resolvedEngine(Map s, [Map settings = const {}]) {
     final live = '${s['engine'] ?? ''}';
     if (live.isNotEmpty) return live;
@@ -483,6 +489,8 @@ class VoicePageState extends State<VoicePage> with RoutePage {
     final noiseFilter = VoiceService.noiseFilters.contains(rawNoise) ? rawNoise : 'standard';
     final rawVad = '${s['vad_sensitivity'] ?? settings['vad_sensitivity'] ?? 'normal'}';
     final vadSensitivity = VoiceService.vadSensitivities.contains(rawVad) ? rawVad : 'normal';
+    final rawMedia = '${s['media_during_dictation'] ?? settings['media_during_dictation'] ?? 'keep'}';
+    final mediaAction = VoiceService.mediaActions.contains(rawMedia) ? rawMedia : 'keep';
     final hallucination = (s['hallucination_filter'] ?? settings['hallucination_filter']) != false;
     final activeEngine = _resolvedEngine(s, settings);
     final externalEngine = isExternalEngine(activeEngine);
@@ -493,11 +501,11 @@ class VoicePageState extends State<VoicePage> with RoutePage {
 
     final String ncDescription;
     if (ncEnabled && ncActive) {
-      ncDescription = tr('Active. Select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above to use WebRTC noise suppression. Switching restarts audio briefly.');
+      ncDescription = tr('Active. Select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above to filter out speaker/video playback and background noise. Switching restarts audio briefly.');
     } else if (ncEnabled) {
       ncDescription = tr('Enabled — waiting for PipeWire (takes effect after audio restarts). Select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above once available.');
     } else {
-      ncDescription = tr('Creates a virtual PipeWire microphone with WebRTC noise suppression. Switching restarts audio briefly; once active, select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above.');
+      ncDescription = tr('Creates a virtual PipeWire microphone with WebRTC echo & noise cancellation (filters out YouTube/speaker playback from your mic). Switching restarts audio briefly; once active, select “Maprisma Noise-Cancelling Mic” in the Microphone dropdown above.');
     }
 
     return SettingsSection(
@@ -526,6 +534,14 @@ class VoicePageState extends State<VoicePage> with RoutePage {
           description: hallucinationDescription(s, settings),
           value: hallucination,
           onChanged: lock || externalEngine ? null : (v) => _set('hallucination_filter', v),
+        ),
+        SettingsChoice<String>(
+          key: const ValueKey('voice-media-action'),
+          title: tr('While dictating'),
+          description: tr('Optionally lower system volume or pause playing videos and music while listening (applies to every Maprisma app).'),
+          value: mediaAction,
+          choices: [for (final x in VoiceService.mediaActions) (x, mediaActionName(x))],
+          onChanged: lock ? null : (v) => v == mediaAction ? null : _set('media_during_dictation', v),
         ),
         if (ncAvailable)
           SettingsItem(

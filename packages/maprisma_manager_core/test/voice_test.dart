@@ -536,7 +536,7 @@ void main() {
     expect(await SoundService(w.core().ctx).microphones(), {'default': null, 'sources': const []});
   });
 
-  test('v0.3.0 audio filtering settings: noise_filter, vad_sensitivity, hallucination_filter', () async {
+  test('v0.3.0 audio filtering settings: noise_filter, vad_sensitivity, hallucination_filter, media_during_dictation', () async {
     installFake();
     final core = w.core();
     for (final nf in VoiceService.noiseFilters) {
@@ -545,12 +545,17 @@ void main() {
     for (final vs in VoiceService.vadSensitivities) {
       await core.call('voice.set', {'key': 'vad_sensitivity', 'value': vs});
     }
+    for (final ma in VoiceService.mediaActions) {
+      await core.call('voice.set', {'key': 'media_during_dictation', 'value': ma});
+    }
     await core.call('voice.set', {'key': 'hallucination_filter', 'value': true});
     await core.call('voice.set', {'key': 'hallucination_filter', 'value': false});
     await core.call('voice.unset', {'key': 'noise_filter'});
     await expectLater(core.call('voice.set', {'key': 'noise_filter', 'value': 'ultra'}), refused('bad_params'));
     await expectLater(core.call('voice.set', {'key': 'noise_filter', 'value': true}), refused('bad_params'));
     await expectLater(core.call('voice.set', {'key': 'vad_sensitivity', 'value': 'loose'}), refused('bad_params'));
+    await expectLater(core.call('voice.set', {'key': 'media_during_dictation', 'value': 'mute'}), refused('bad_params'));
+    await expectLater(core.call('voice.set', {'key': 'media_during_dictation', 'value': true}), refused('bad_params'));
     await expectLater(core.call('voice.set', {'key': 'hallucination_filter', 'value': 'yes'}), refused('bad_params'));
     expect(calls(), [
       ['set', 'noise_filter', '"off"'],
@@ -559,6 +564,9 @@ void main() {
       ['set', 'vad_sensitivity', '"strict"'],
       ['set', 'vad_sensitivity', '"normal"'],
       ['set', 'vad_sensitivity', '"sensitive"'],
+      ['set', 'media_during_dictation', '"keep"'],
+      ['set', 'media_during_dictation', '"duck"'],
+      ['set', 'media_during_dictation', '"pause"'],
       ['set', 'hallucination_filter', 'true'],
       ['set', 'hallucination_filter', 'false'],
       ['unset', 'noise_filter'],
@@ -614,6 +622,7 @@ fi
     final content = conf.readAsStringSync();
     expect(content, contains('libpipewire-module-echo-cancel'));
     expect(content, contains('aec/libspa-aec-webrtc'));
+    expect(content, contains('monitor.mode  = true'));
     expect(content, contains('maprisma.noise_cancel_source'));
     expect(content, contains('Maprisma Noise-Cancelling Mic'));
     expect(File(p.join(w.home, 'systemctl.log')).readAsLinesSync(), ['--user restart pipewire wireplumber']);

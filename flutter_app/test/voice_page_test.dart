@@ -523,7 +523,7 @@ void main() {
     expect(fake.of('links.open'), [{'url': 'https://github.com/maprisma/dictation'}]);
   });
 
-  testWidgets('Audio & noise filtering: noise filter, VAD sensitivity, engine-aware hallucination filter', (tester) async {
+  testWidgets('Audio & noise filtering: noise filter, VAD sensitivity, media action, engine-aware hallucination filter', (tester) async {
     final fake = await open(
       tester,
       _get(settings: {'noise_filter': 'standard', 'vad_sensitivity': 'normal', 'hallucination_filter': true}),
@@ -533,6 +533,8 @@ void main() {
     expect(find.byKey(const ValueKey('voice-noise-filter')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-vad-sensitivity')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-hallucination-filter')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-media-action')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('voice-media-action')), matching: find.text('Keep playing')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-noise-cancel')), findsNothing);
     // Engine-aware description for Local Whisper
     expect(find.textContaining('Local Whisper sometimes hallucinates'), findsOneWidget);
@@ -541,10 +543,14 @@ void main() {
     await pick(tester, 'voice-vad-sensitivity', 'Strict');
     await tapKey(tester, 'voice-hallucination-filter');
     await tester.pumpAndSettle();
+    await pick(tester, 'voice-media-action', 'Lower volume');
+    await pick(tester, 'voice-media-action', 'Pause media');
     expect(fake.of('voice.set'), [
       {'key': 'noise_filter', 'value': 'strong'},
       {'key': 'vad_sensitivity', 'value': 'strict'},
       {'key': 'hallucination_filter', 'value': false},
+      {'key': 'media_during_dictation', 'value': 'duck'},
+      {'key': 'media_during_dictation', 'value': 'pause'},
     ]);
     expect(tester.takeException(), isNull);
   });
@@ -577,6 +583,7 @@ void main() {
     );
     expect(find.byKey(const ValueKey('voice-noise-cancel')), findsOneWidget);
     expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsNothing);
+    expect(find.textContaining('WebRTC echo & noise cancellation (filters out YouTube/speaker playback from your mic)'), findsOneWidget);
     expect(find.textContaining('Switching restarts audio briefly'), findsOneWidget);
 
     // Enabled but not yet active -> shows waiting for PipeWire text (U4)
@@ -598,6 +605,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('voice-noise-cancel-active')), findsOneWidget);
     expect(find.text('Active'), findsOneWidget);
+    expect(find.textContaining('to filter out speaker/video playback and background noise'), findsOneWidget);
 
     // Toggling off calls voice.noise_cancel with enabled: false, apply: true
     fake.answer = _get(noiseCancel: const {'available': true, 'enabled': false, 'active': false});
