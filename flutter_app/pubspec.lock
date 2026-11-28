@@ -260,7 +260,7 @@ packages:
       path: "../packages/maprisma_manager_core"
       relative: true
     source: path
-    version: "0.10.4"
+    version: "0.11.0"
   maprisma_ui:
     dependency: "direct main"
     description:

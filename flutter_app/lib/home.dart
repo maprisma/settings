@@ -15,6 +15,7 @@ import 'notifications_page.dart';
 import 'optimize_page.dart';
 import 'pages.dart';
 import 'power_page.dart';
+import 'presets_page.dart';
 import 'settings_page.dart';
 import 'skin.dart';
 import 'system_apps_page.dart';
@@ -24,7 +25,7 @@ import 'voice_page.dart';
 import 'window.dart';
 
 /// The window's pages, in the sidebar's order.
-enum Section { systemApps, apps, network, bluetooth, appearance, theme, bar, displays, sound, notifications, ai, voice, power, optimize, input, applications, time, about, settings }
+enum Section { systemApps, apps, network, bluetooth, appearance, theme, presets, bar, displays, sound, notifications, ai, voice, power, optimize, input, applications, time, about, settings }
 
 /// The window as COSMIC Settings lays it out: a sidebar of pages left (icon and name, the open
 /// one highlighted), the page right. Below [condensedBelow] the sidebar hides behind a toggle
@@ -153,6 +154,7 @@ class ManagerHomeState extends State<ManagerHome> {
     Section.bluetooth => on ? Icons.bluetooth : Icons.bluetooth_outlined,
     Section.appearance => on ? Icons.palette : Icons.palette_outlined,
     Section.theme => on ? Icons.style : Icons.style_outlined,
+    Section.presets => on ? Icons.view_quilt : Icons.view_quilt_outlined,
     Section.bar => on ? Icons.view_week : Icons.view_week_outlined,
     Section.displays => on ? Icons.monitor : Icons.monitor_outlined,
     Section.sound => on ? Icons.volume_up : Icons.volume_up_outlined,
@@ -175,6 +177,7 @@ class ManagerHomeState extends State<ManagerHome> {
     Section.bluetooth => tr('Bluetooth'),
     Section.appearance => tr('Appearance'),
     Section.theme => tr('Theme'),
+    Section.presets => tr('Presets'),
     Section.bar => tr('Bar'),
     Section.displays => tr('Displays'),
     Section.sound => tr('Sound'),
@@ -307,6 +310,7 @@ class ManagerHomeState extends State<ManagerHome> {
       onShowApps: () => open(Section.apps),
     ),
     Section.theme => ThemePage(key: const ValueKey('theme-page'), core: widget.core, onShowApps: () => open(Section.apps)),
+    Section.presets => PresetsPage(key: const ValueKey('presets-page'), core: widget.core, onShowApps: () => open(Section.apps)),
     Section.network => NetworkPage(key: const ValueKey('network-page'), core: widget.core),
     Section.bluetooth => BluetoothPage(key: const ValueKey('bluetooth-page'), core: widget.core),
     Section.sound => SoundPage(key: const ValueKey('sound-page'), core: widget.core),

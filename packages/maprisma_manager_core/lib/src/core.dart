@@ -17,6 +17,7 @@ import 'displays.dart';
 import 'icons.dart';
 import 'animations.dart';
 import 'input.dart';
+import 'presets_view.dart';
 import 'theme_view.dart';
 import 'jobs.dart';
 import 'network.dart';
@@ -38,7 +39,7 @@ import 'system_apps.dart';
 import 'time_lang.dart';
 import 'voice.dart';
 
-const coreVersion = '0.10.4';
+const coreVersion = '0.11.0';
 
 /// How long a fetch counts as fresh (plan: "fetch at most every 30 min unless forced").
 const fetchInterval = Duration(minutes: 30);
@@ -285,6 +286,24 @@ final class CoreService {
       // The Theme page: Maprisma Theme's themes, applied through its core (theme_view.dart).
       'theme.list': (_) => themeView.list(),
       'theme.apply': (params) => themeView.apply(params),
+      // The Presets page: workspace presets, app presets and saved presets through Maprisma Theme's core.
+      'presets.load': (_) => presetsView.load(),
+      'presets.set': (params) => presetsView.set(params),
+      'presets.bulk': (params) => presetsView.bulk(params),
+      'presets.reset': (_) => presetsView.reset(),
+      'presets.apply_tiling': (_) => presetsView.applyTiling(),
+      'presets.undo': (_) => presetsView.undo(),
+      'presets.app_launchers': (_) => presetsView.appLaunchers(),
+      'presets.app_add': (params) => presetsView.appAdd(params),
+      'presets.app_save': (params) => presetsView.appSave(params),
+      'presets.app_remove': (params) => presetsView.appRemove(params),
+      'presets.app_remove_all': (_) => presetsView.appRemoveAll(),
+      'presets.app_autostart': (params) => presetsView.appAutostart(params),
+      'presets.app_restore': (params) => presetsView.appRestore(params),
+      'presets.saved_save': (params) => presetsView.savedSave(params),
+      'presets.saved_apply': (params) => presetsView.savedApply(params),
+      'presets.saved_delete': (params) => presetsView.savedDelete(params),
+      'presets.saved_assign': (params) => presetsView.savedAssign(params),
       // Network & Wireless and Bluetooth on Hyprland (nmcli, bluetoothctl).
       'network.get': (params) => network.get(params),
       'network.wifi': (params) => network.wifi(params),
@@ -381,6 +400,9 @@ final class CoreService {
 
   /// The Theme page (theme.*): Maprisma Theme's core does the work.
   late final ThemeViewService themeView = ThemeViewService(ctx);
+
+  /// The Presets page (presets.*): Maprisma Theme's core does the work.
+  late final PresetsViewService presetsView = PresetsViewService(ctx, themeView);
 
   /// The Network & Wireless and Bluetooth pages (network.*, bluetooth.*).
   late final NetworkService network = NetworkService(ctx);

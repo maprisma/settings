@@ -35,6 +35,7 @@ export 'src/displays.dart';
 export 'src/hypr_config.dart';
 export 'src/animations.dart';
 export 'src/input.dart';
+export 'src/presets_view.dart';
 export 'src/theme_view.dart';
 export 'src/git.dart';
 export 'src/github.dart';
